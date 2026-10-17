@@ -41,8 +41,8 @@ EXTENSIONS = (
 
 STATE_COLORS = {
     ConnState.CONNECTED: theme.OK,
-    ConnState.HANDSHAKE: theme.ACCENT,
-    ConnState.SEARCHING: theme.MUTED,
+    ConnState.HANDSHAKE: theme.TEXT,
+    ConnState.SEARCHING: theme.FAINT,
     ConnState.ERROR: theme.ERROR,
     ConnState.INCOMPATIBLE: theme.WARN,
 }
@@ -95,6 +95,7 @@ class MainWindow(QMainWindow):
         outer = QVBoxLayout(central)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
+        outer.addWidget(self._build_header())
         self.sim_banner = QLabel("SIMULATION – alle angezeigten Werte sind simulierte Daten, "
                                  "es ist kein Daisy Seed3 angeschlossen")
         self.sim_banner.setObjectName("simBanner")
@@ -104,14 +105,17 @@ class MainWindow(QMainWindow):
         split = QSplitter(Qt.Horizontal)
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(10, 10, 4, 10)
+        left_layout.setContentsMargins(12, 12, 6, 12)
+        left_layout.setSpacing(6)
         self.board = BoardWidget()
         left_layout.addWidget(self.board, 1)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(1000)
-        self.log.setFixedHeight(140)
-        left_layout.addWidget(QLabel("Ereignisprotokoll"))
+        self.log.setFixedHeight(130)
+        log_label = QLabel("Ereignisprotokoll")
+        log_label.setObjectName("sectionLabel")
+        left_layout.addWidget(log_label)
         left_layout.addWidget(self.log)
         split.addWidget(left)
 
@@ -121,7 +125,8 @@ class MainWindow(QMainWindow):
         scroll.setMinimumWidth(470)
         panel = QWidget()
         self.panel_layout = QVBoxLayout(panel)
-        self.panel_layout.setContentsMargins(6, 6, 10, 10)
+        self.panel_layout.setContentsMargins(6, 0, 12, 12)
+        self.panel_layout.setSpacing(4)
         self.panel_layout.addWidget(self._build_connection_group())
         self.sim_group = self._build_sim_group()
         self.panel_layout.addWidget(self.sim_group)
@@ -147,25 +152,48 @@ class MainWindow(QMainWindow):
         self.board.jackToggled.connect(self._sim_toggle_jack)
         self.board.ledClicked.connect(self._toggle_led)
 
-    def _build_connection_group(self) -> QGroupBox:
-        box = QGroupBox("USB-Verbindung")
-        layout = QVBoxLayout(box)
-        row = QHBoxLayout()
-        self.status_pill = QLabel("Getrennt")
-        self.status_pill.setObjectName("statusPill")
-        row.addWidget(self.status_pill)
+    def _build_header(self) -> QWidget:
+        header = QWidget()
+        header.setObjectName("header")
+        header.setAttribute(Qt.WA_StyledBackground, True)
+        row = QHBoxLayout(header)
+        row.setContentsMargins(16, 8, 16, 8)
+        title = QLabel("Daisy Seed3 – Hardware Diagnostic Suite")
+        title.setObjectName("appTitle")
+        version = QLabel(f"v{__version__}")
+        version.setObjectName("appVersion")
+        row.addWidget(title)
+        row.addSpacing(10)
+        row.addWidget(version)
         row.addStretch(1)
         self.mode_hw = QPushButton("Hardware (USB)")
         self.mode_sim = QPushButton("Simulation")
         for b in (self.mode_hw, self.mode_sim):
             b.setCheckable(True)
+            b.setObjectName("segment")
             row.addWidget(b)
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.mode_hw)
         self.mode_group.addButton(self.mode_sim)
         self.mode_hw.clicked.connect(lambda: self._start_session(False))
         self.mode_sim.clicked.connect(lambda: self._start_session(True))
-        layout.addLayout(row)
+        row.addStretch(1)
+        self.status_dot = QLabel()
+        self.status_dot.setFixedSize(10, 10)
+        row.addWidget(self.status_dot)
+        row.addSpacing(6)
+        self.status_pill = QLabel("Getrennt")
+        self.status_pill.setObjectName("statusText")
+        row.addWidget(self.status_pill)
+        row.addSpacing(14)
+        self.connect_button = QPushButton("Trennen")
+        self.connect_button.clicked.connect(self._toggle_pause)
+        row.addWidget(self.connect_button)
+        return header
+
+    def _build_connection_group(self) -> QGroupBox:
+        box = QGroupBox("USB-Diagnose")
+        layout = QVBoxLayout(box)
         self.status_detail = QLabel("")
         self.status_detail.setObjectName("hint")
         self.status_detail.setWordWrap(True)
@@ -177,9 +205,6 @@ class MainWindow(QMainWindow):
         self.port_combo.addItem("Automatisch (VID 0483 / PID 5740)", None)
         self.port_combo.currentIndexChanged.connect(self._port_selected)
         port_row.addWidget(self.port_combo, 1)
-        self.connect_button = QPushButton("Trennen")
-        self.connect_button.clicked.connect(self._toggle_pause)
-        port_row.addWidget(self.connect_button)
         layout.addLayout(port_row)
 
         form = QFormLayout()
@@ -265,6 +290,7 @@ class MainWindow(QMainWindow):
         self.led_checks: list[QCheckBox] = []
         for i in range(p.NUM_LEDS):
             cb = QCheckBox(f"D{i + 1}")
+            cb.setObjectName("ledCheck")
             cb.clicked.connect(lambda checked, idx=i: self._set_led_bit(idx, checked))
             grid.addWidget(cb, i // 8, i % 8)
             self.led_checks.append(cb)
@@ -508,10 +534,10 @@ class MainWindow(QMainWindow):
         if not st.sd_card:
             return "Keine Karte", theme.MUTED
         if self.session.sd_test_pending:
-            return "Lesetest läuft …", theme.ACCENT
+            return "Lesetest läuft …", theme.TEXT
         r = self.sd_result
         if r is None:
-            return "Karte erkannt", theme.ACCENT
+            return "Karte erkannt", theme.TEXT
         if r.status == "MOUNTED":
             size = f"{r.size_mb / 1024:.1f} GB" if r.size_mb >= 1024 else f"{r.size_mb} MB"
             return f"Dateisystem lesbar ({r.fs_type}, {size}, {r.entries} Einträge)", theme.OK
@@ -528,10 +554,9 @@ class MainWindow(QMainWindow):
         text = "Pausiert" if self.paused else STATE_TEXT[state]
         if s.simulated and state == ConnState.CONNECTED:
             text += " (Simulation)"
-        color = theme.MUTED if self.paused else STATE_COLORS[state]
+        color = theme.FAINT if self.paused else STATE_COLORS[state]
         self.status_pill.setText(text)
-        self.status_pill.setStyleSheet(
-            f"background: {color.name()}; color: #0d0f12;")
+        self.status_dot.setStyleSheet(f"background: {color.name()}; border-radius: 5px;")
         self.status_detail.setText("Verbindung manuell getrennt" if self.paused
                                    else s.status_detail)
 
@@ -591,10 +616,11 @@ class MainWindow(QMainWindow):
              self.sd_result is None else
              "Steckplatz meldet keine Karte." if not st.sd_card else ""))
 
-        def show(key: str, value: str, active: bool = False) -> None:
+        def show(key: str, value: str, active: bool = False, ok: bool = False) -> None:
             self.in_labels[key].setText(value)
-            self.in_labels[key].setStyleSheet(f"color: {theme.ACCENT.name()}; font-weight: 700;"
-                                              if active else "")
+            color = theme.OK if ok else theme.TEXT
+            self.in_labels[key].setStyleSheet(f"color: {color.name()}; font-weight: 700;"
+                                              if active else f"color: {theme.MUTED.name()};")
 
         if st is None:
             for key in self.in_labels:
@@ -604,9 +630,9 @@ class MainWindow(QMainWindow):
                  st.sw17 == "U")
             show("sw18", {"U": "U (oben)", "C": "C (Mitte / OFF)", "D": "D (unten)"}[st.sw18],
                  st.sw18 != "C")
-            show("jl", "Stecker erkannt" if st.jack_left else "frei", st.jack_left)
-            show("jr", "Stecker erkannt" if st.jack_right else "frei", st.jack_right)
-            show("sd", "Karte erkannt" if st.sd_card else "keine Karte", st.sd_card)
+            show("jl", "Stecker erkannt" if st.jack_left else "frei", st.jack_left, ok=True)
+            show("jr", "Stecker erkannt" if st.jack_right else "frei", st.jack_right, ok=True)
+            show("sd", "Karte erkannt" if st.sd_card else "keine Karte", st.sd_card, ok=True)
 
         for i in range(p.NUM_POTS):
             lo, hi = self.board.pot_min[i], self.board.pot_max[i]
@@ -622,8 +648,8 @@ class MainWindow(QMainWindow):
                 label.setStyleSheet("")
             else:
                 label.setText(f"S{i + 1}: {st.press_counts[i]}")
-                label.setStyleSheet(f"color: {theme.ACCENT.name()}; font-weight: 700;"
-                                    if st.buttons[i] else "")
+                label.setStyleSheet(f"color: {theme.TEXT.name()}; font-weight: 700;"
+                                    f"background: #3a3d41;" if st.buttons[i] else "")
 
         if self.cable is not None:
             self.sim_plug.setText("USB-Kabel einstecken" if not self.cable.plugged
