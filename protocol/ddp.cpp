@@ -165,7 +165,7 @@ void MessageType(const char* body, char* out, size_t cap) {
     out[n] = 0;
 }
 
-bool FindField(const char* body, const char* key, char* out, size_t cap) {
+Lookup LookupField(const char* body, const char* key, char* out, size_t cap) {
     const char* p = body;
     while(*p && *p != ' ')
         ++p;  // skip message type
@@ -182,18 +182,21 @@ bool FindField(const char* body, const char* key, char* out, size_t cap) {
             ++t;
             size_t n = 0;
             while(t[n] && t[n] != ' ') {
-                if(n + 1 >= cap)
-                    return false;
+                if(n + 1 >= cap) {
+                    if(cap)
+                        out[0] = 0;
+                    return Lookup::TooLong;
+                }
                 out[n] = t[n];
                 ++n;
             }
             out[n] = 0;
-            return true;
+            return Lookup::Found;
         }
         while(*p && *p != ' ')
             ++p;
     }
-    return false;
+    return Lookup::Missing;
 }
 
 bool ParseU32(const char* s, uint32_t& out) {

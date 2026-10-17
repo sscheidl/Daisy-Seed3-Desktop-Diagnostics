@@ -1,6 +1,8 @@
 # Testbericht
 
-Stand: 17.10.2026, Branch `feat/hardware-diagnostics`, lokal unter Windows 11 Pro
+Stand: 17.10.2026, Branch `fix/codex-review-findings` (Korrekturen zum Codex-Review,
+siehe [HANDOVER.md, Abschnitt 9](HANDOVER.md#9-codex-review-von-6f709ec-befunde-und-korrekturen)),
+lokal unter Windows 11 Pro
 (10.0.26300). **Es war kein Daisy Seed3 angeschlossen.** Die einzige angeschlossene
 serielle USB-Schnittstelle (COM3, VID `17CC`) gehört zu einem anderen Gerät und
 wurde von der Anwendung korrekt ignoriert.
@@ -10,11 +12,11 @@ wurde von der Anwendung korrekt ignoriert.
 | # | Prüfung | Befehl | Ergebnis |
 | --- | --- | --- | --- |
 | 1 | ARM-Cross-Compile (sauberer Neubau) | `bash diagnostics/scripts/build-firmware.sh` | **bestanden**, keine Warnungen aus eigenem Code (`-Wall`) |
-| 2 | BOOT_SRAM-Vektortabelle | `make -C diagnostics/firmware check` | **bestanden**: 126 760 B, Stack `0x20020000`, Reset `0x240003f1` |
-| 3 | Keine schreibenden FatFs-Funktionen gelinkt | `make … check` (nm) | **bestanden**: nur `f_mount`, `f_opendir`, `f_readdir`, `f_closedir` |
+| 2 | BOOT_SRAM-Vektortabelle | `make -C diagnostics/firmware check` | **bestanden**: 122 152 B, Stack `0x20020000`, Reset `0x240003f1` |
+| 3 | Kein SD-Schreib-/Lösch-/Sperrpfad gelinkt (SDMMC, HAL, BSP, FatFs) | `make … check` (nm) | **bestanden**; Gegenprobe mit eingeschleustem `f_open(…, FA_WRITE)` wird erkannt |
 | 4 | Reproduzierbarkeit | zweimal sauber gebaut | **bestanden**: identische SHA-256 |
-| 5 | C++-Host-Tests Firmwarelogik + Protokoll (MSVC 19.51, `/W4 /WX`) | `diagnostics\scripts\run-host-tests-msvc.cmd` | **bestanden**: 325 Prüfungen, 0 Fehler |
-| 6 | Python-Tests gesamt (Python 3.12.10, PySide6 6.8.3, pytest 9.0.3) | `python -m pytest diagnostics/tests/python` | **bestanden**: 142 Tests |
+| 5 | C++-Host-Tests Kern, Protokoll und Hauptschleife (MSVC 19.51, `/W4 /WX`) | `diagnostics\scripts\run-host-tests-msvc.cmd` | **bestanden**: 339 + 635 Prüfungen, 0 Fehler |
+| 6 | Python-Tests gesamt (Python 3.12.10, PySide6 6.8.3, pytest 9.0.3) | `python -m pytest diagnostics/tests/python` | **bestanden**: 162 Tests |
 | 7 | GUI-Start im Simulationsmodus (Quellcode) | `python -m daisy_diag --sim --selftest 3` | **bestanden** (Exitcode 0) |
 | 8 | EXE-Build (PyInstaller 6.19.0, onefile, windowed) | `diagnostics\windows\build_exe.cmd` | **bestanden**: 46,9 MB |
 | 9 | EXE-Start Simulation | `DaisyDiagnostic.exe --sim --selftest 5` | **bestanden** (Exitcode 0) |
@@ -37,9 +39,10 @@ GUI- und EXE-Tests liefen mit `QT_QPA_PLATFORM=offscreen` (ohne sichtbares Fenst
 ### Was diese Tests nicht beweisen
 
 * Die Python-Simulation ist ein **Modell** der Firmware, nicht die Firmware selbst.
-  Gemeinsam getestet sind Protokoll, Befehlslogik (C++-Kern) und Nachrichtenformat;
-  die hardwarenahe Datei `firmware/src/main.cpp` (GPIO, ADC, USB, SD, LED-Treiber)
-  ist nur kompiliert, nicht ausgeführt.
+  Die Hauptschleife der Firmware (`diag_app`) läuft dagegen als echter C++-Code mit
+  Fake-Board und Fake-USB. Nur die hardwarenahe Datei `firmware/src/main.cpp`
+  (Audiocallback, CDC-Sender, SD-Treiber, LED-Ansteuerung) ist nur kompiliert.
+* ASan/UBSan-Läufe (`make test-sanitize`) benötigen g++ und laufen im GitHub-Workflow.
 * Kein Test auf echter USB-Hardware, kein Test des echten Windows-CDC-Treibers mit
   diesem Gerät, kein Test von Timing, ADC-Rauschen oder Entprellung am Board.
 

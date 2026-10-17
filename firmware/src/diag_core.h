@@ -94,22 +94,30 @@ enum Request : uint32_t {
     kRequestState = 1u << 0,   // send ST (and SYS) immediately
     kRequestSdTest = 1u << 1,  // run the read-only SD test in the main loop
     kRequestLeds = 1u << 2,    // LED settings changed
+    kRequestNewSession = 1u << 3,  // HELLO accepted: stale queued output may be dropped
 };
 
 // Command handling and host liveness. Streaming starts with HELLO and stops after
-// BYE or kHostTimeoutMs without a valid frame.
+// BYE or kHostTimeoutMs without a valid frame; only a new HELLO restarts it.
 class Session {
   public:
     void Init(const char* bootloader_name) { bootloader_ = bootloader_name; }
     // Handles one valid frame body. Writes a reply body into `reply` (left empty
     // when there is nothing to answer) and returns a mask of Request flags.
     uint32_t Handle(const char* body, uint32_t now_ms, ddp::Writer& reply);
-    bool HostActive(uint32_t now_ms) const;
+    bool HostActive(uint32_t now_ms);
+    // Counts as host activity: used after a blocking operation the host requested
+    // (SD test), during which the host's keep-alive frames could not be processed.
+    void KeepAlive(uint32_t now_ms) {
+        if(streaming_)
+            last_rx_ms_ = now_ms;
+    }
     void WriteHello(ddp::Writer& out) const;
 
     Settings settings;
 
   private:
+    void Expire(uint32_t now_ms);
     const char* bootloader_ = "unknown";
     bool streaming_ = false;
     uint32_t last_rx_ms_ = 0;

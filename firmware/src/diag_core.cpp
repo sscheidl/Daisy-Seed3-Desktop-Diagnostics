@@ -105,8 +105,14 @@ uint16_t NormalizePot(float value) {
     return static_cast<uint16_t>(value * 10000.f + 0.5f);
 }
 
-bool Session::HostActive(uint32_t now_ms) const {
-    return streaming_ && now_ms - last_rx_ms_ < kHostTimeoutMs;
+void Session::Expire(uint32_t now_ms) {
+    if(streaming_ && now_ms - last_rx_ms_ >= kHostTimeoutMs)
+        streaming_ = false;
+}
+
+bool Session::HostActive(uint32_t now_ms) {
+    Expire(now_ms);
+    return streaming_;
 }
 
 void Session::WriteHello(ddp::Writer& out) const {
@@ -119,6 +125,7 @@ void Session::WriteHello(ddp::Writer& out) const {
 }
 
 uint32_t Session::Handle(const char* body, uint32_t now_ms, ddp::Writer& reply) {
+    Expire(now_ms);  // a late PING must not revive a timed-out stream
     last_rx_ms_ = now_ms;
     char type[13];
     ddp::MessageType(body, type, sizeof(type));
@@ -135,7 +142,7 @@ uint32_t Session::Handle(const char* body, uint32_t now_ms, ddp::Writer& reply) 
         }
         streaming_ = true;
         WriteHello(reply);
-        return kRequestState;
+        return kRequestState | kRequestNewSession;
     }
     if(std::strcmp(type, "PING") == 0) {
         if(!FieldU32(body, "n", value)) {
@@ -164,22 +171,28 @@ uint32_t Session::Handle(const char* body, uint32_t now_ms, ddp::Writer& reply) 
             WriteError(reply, type, "ARG");
             return kRequestNone;
         }
-        if(ddp::FindField(body, "mask", text, sizeof(text))) {
-            if(!ddp::ParseHex(text, value) || value > 0xffff) {
+        // Optional fields: absent keeps the setting, present-but-invalid (including
+        // too long to parse) rejects the whole command.
+        ddp::Lookup found = ddp::LookupField(body, "mask", text, sizeof(text));
+        if(found != ddp::Lookup::Missing) {
+            if(found == ddp::Lookup::TooLong || !ddp::ParseHex(text, value) || value > 0xffff) {
                 WriteError(reply, type, "ARG");
                 return kRequestNone;
             }
             next.led_mask = static_cast<uint16_t>(value);
         }
-        if(ddp::FindField(body, "br", text, sizeof(text))) {
-            if(!ddp::ParseU32(text, value) || value > 100) {
+        found = ddp::LookupField(body, "br", text, sizeof(text));
+        if(found != ddp::Lookup::Missing) {
+            if(found == ddp::Lookup::TooLong || !ddp::ParseU32(text, value) || value > 100) {
                 WriteError(reply, type, "ARG");
                 return kRequestNone;
             }
             next.led_brightness = static_cast<uint8_t>(value);
         }
-        if(ddp::FindField(body, "ms", text, sizeof(text))) {
-            if(!ddp::ParseU32(text, value) || value < 20 || value > 2000) {
+        found = ddp::LookupField(body, "ms", text, sizeof(text));
+        if(found != ddp::Lookup::Missing) {
+            if(found == ddp::Lookup::TooLong || !ddp::ParseU32(text, value) || value < 20
+               || value > 2000) {
                 WriteError(reply, type, "ARG");
                 return kRequestNone;
             }

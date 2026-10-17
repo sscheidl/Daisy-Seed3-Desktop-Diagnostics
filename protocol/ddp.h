@@ -71,9 +71,16 @@ class Writer {
 // Message type = first token of the body. Copies at most cap-1 characters.
 void MessageType(const char* body, char* out, size_t cap);
 
-// Looks up "key=value" in a body (tokens separated by single spaces; the first
-// token is the type and never matches). Copies the value; false if absent or too long.
-bool FindField(const char* body, const char* key, char* out, size_t cap);
+// Looks up "key=value" in a body (tokens separated by spaces; the first token is the
+// type and never matches) and copies the value. A value that does not fit into `out`
+// is reported as TooLong, so callers can reject it instead of treating it as absent.
+enum class Lookup : uint8_t { Missing, Found, TooLong };
+Lookup LookupField(const char* body, const char* key, char* out, size_t cap);
+
+// Shorthand: true only if the field is present and fits.
+inline bool FindField(const char* body, const char* key, char* out, size_t cap) {
+    return LookupField(body, key, out, cap) == Lookup::Found;
+}
 
 // Strict number parsers for field values; false on empty input, junk or overflow.
 bool ParseU32(const char* s, uint32_t& out);

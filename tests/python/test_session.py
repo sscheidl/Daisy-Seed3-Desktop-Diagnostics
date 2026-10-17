@@ -330,6 +330,130 @@ def test_slow_sd_card_does_not_drop_connection(connected):
     assert s.state == ConnState.CONNECTED and s.state_rate_hz > 0
 
 
+def test_commands_wait_while_firmware_is_blocked(connected):
+    # P6: during the SD block the simulated firmware queues bytes like its RX ring.
+    clock, cable, s = connected
+    dev = cable.device
+    dev.inputs.sd_card = True
+    dev.sd_test_duration = 2.0
+    run(clock, s, 0.05)
+    assert s.request_sd_test()
+    run(clock, s, 0.05)
+    s.set_led("ON")
+    run(clock, s, 0.05)
+    assert dev.led_mode == "FOLLOW"  # not processed yet: main loop blocked
+    run(clock, s, 2.5)
+    assert dev.led_mode == "ON"
+    assert s.board.led_mode == "ON"
+    assert s.state == ConnState.CONNECTED
+
+
+def test_rx_ring_overflow_while_blocked_is_counted():
+    clock = FakeClock()
+    dev = SimulatedDevice()
+    dev.inputs.sd_card = True
+    dev.sd_test_duration = 5.0
+    dev.receive(p.build_frame("HELLO proto=1"), clock())
+    dev.output(clock())
+    dev.receive(p.build_frame("SDTEST"), clock())
+    flood = p.build_frame("PING n=1") * 100  # ~1.5 KiB > 1 KiB ring
+    dev.receive(flood, clock())
+    assert dev.rx_overflow == len(flood) - (dev.RX_RING_SIZE)
+    clock.advance(5.1)
+    out = dev.output(clock())
+    assert out.count(b"$SD st=") == 1
+    assert out.count(b"$PONG") == dev.RX_RING_SIZE // len(p.build_frame("PING n=1"))
+    assert b"rxbad=" in out
+
+
+def test_ping_after_timeout_does_not_restart_stream():
+    # P9, simulator side (firmware side is covered by the C++ tests).
+    clock = FakeClock()
+    dev = SimulatedDevice()
+    dev.receive(p.build_frame("HELLO proto=1"), clock())
+    dev.output(clock())
+    clock.advance(3.5)
+    dev.receive(p.build_frame("PING n=4"), clock())
+    out = dev.output(clock())
+    assert b"$PONG n=4*" in out and b"$ST " not in out
+    clock.advance(0.5)
+    assert b"$ST " not in dev.output(clock())
+
+
+def test_simulator_clock_starting_at_zero():
+    # P12: a start time of 0.0 is a valid time, not "unset".
+    clock = FakeClock(start=0.0)
+    dev = SimulatedDevice()
+    dev.receive(p.build_frame("HELLO proto=1"), clock())
+    dev.receive(p.build_frame("LED m=CHASE ms=100"), clock())
+    dev.output(clock())
+    clock.advance(1.0)
+    state = dev.state(clock())
+    assert state.time_ms == 1000
+    assert state.leds.index(True) == 10
+
+
+def test_large_sequence_gap_is_counted(connected):
+    # P8: a gap of 1000 or more ST frames used to be ignored.
+    clock, cable, s = connected
+    dev = cable.device
+    run(clock, s, 0.1)
+    before = s.lost_frames
+    dev._seq += 1000
+    run(clock, s, 0.1)
+    assert s.lost_frames == before + 1000
+
+
+def test_sequence_gap_rules():
+    clock, _, s = make()
+    assert s._sequence_gap(5, 6) == 0
+    assert s._sequence_gap(0, 1001) == 1000
+    assert s._sequence_gap(0xFFFFFFFE, 1) == 2  # wrap-around
+    assert s._sequence_gap(10, 10) == 0
+    assert s._sequence_gap(10, 3) == 0
+    assert any("Unerwartete Sequenznummer" in str(v) for k, v in s.drain_events())
+
+
+class FailingLink:
+    def __init__(self, fail_write=False, fail_read=False):
+        self.fail_write, self.fail_read = fail_write, fail_read
+        self.closed = False
+
+    def read(self):
+        if self.fail_read:
+            raise LinkError("read failed")
+        return b""
+
+    def write(self, data):
+        if self.fail_write:
+            raise LinkError("write failed")
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.parametrize("failure", ["write", "read"])
+def test_handshake_io_error_backs_off_and_tries_next_port(failure):
+    # P3: a broken first port must not block a working Daisy behind it.
+    clock = FakeClock()
+    cable = SimulatedCable()
+    opened = []
+
+    def ports():
+        return [PortInfo("COM2", p.USB_VID, p.USB_PID, "kaputt")] + cable.ports()
+
+    def open_link(name):
+        opened.append(name)
+        if name == "COM2":
+            return FailingLink(fail_write=failure == "write", fail_read=failure == "read")
+        return cable.open(name, clock)
+
+    s = DeviceSession(ports, open_link, clock)
+    run(clock, s, 2.5)
+    assert s.state == ConnState.CONNECTED and s.port == "SIM"
+    assert opened.count("COM2") == 1
+
+
 def test_stream_loss_without_sd_test_still_times_out(connected):
     clock, cable, s = connected
     cable.device.inputs.sd_card = True

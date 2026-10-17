@@ -4,6 +4,7 @@ Specification: diagnostics/protocol/PROTOCOL.md. Mirrors diagnostics/protocol/dd
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 PROTOCOL_VERSION = 1
@@ -18,6 +19,14 @@ USB_PID = 0x5740
 
 class ProtocolError(ValueError):
     """A frame was valid but its content could not be interpreted."""
+
+
+U32_MAX = 0xFFFFFFFF
+# Python's int() also accepts '+1', '-1', ' 1' and '1_0'; the protocol does not.
+_DEC = re.compile(r"[0-9]{1,10}")
+_SIGNED_DEC = re.compile(r"-?[0-9]{1,10}")
+_HEX4 = re.compile(r"[0-9A-Fa-f]{4}")
+_PRESS_COUNTS = re.compile(r"[0-9A-Fa-f]{32}")
 
 
 def crc16(data: bytes) -> int:
@@ -133,11 +142,21 @@ class Message:
     def get(self, key: str, default: str | None = None) -> str | None:
         return self.fields.get(key, default)
 
-    def int(self, key: str, base: int = 10) -> int:
-        try:
-            return int(self.fields[key], base)
-        except (KeyError, ValueError) as exc:
-            raise ProtocolError(f"{self.type}: field {key!r} missing or invalid") from exc
+    def int(self, key: str, low: int = 0, high: int = U32_MAX, signed: bool = False) -> int:
+        """Strict decimal field: digits only (optional '-' if signed), within low..high."""
+        raw = self.fields.get(key)
+        if raw is None or not (_SIGNED_DEC if signed else _DEC).fullmatch(raw):
+            raise ProtocolError(f"{self.type}: field {key!r} missing or invalid")
+        value = int(raw)
+        if not low <= value <= high:
+            raise ProtocolError(f"{self.type}: field {key!r}={value} outside {low}..{high}")
+        return value
+
+    def hex4(self, key: str) -> int:
+        raw = self.fields.get(key)
+        if raw is None or not _HEX4.fullmatch(raw):
+            raise ProtocolError(f"{self.type}: field {key!r} must be 4 hex digits")
+        return int(raw, 16)
 
 
 def parse_message(body: str) -> Message:
@@ -185,10 +204,10 @@ def _int_list(msg: Message, key: str, count: int, low: int, high: int) -> list[i
     raw = msg.get(key)
     if raw is None:
         raise ProtocolError(f"ST: field {key!r} missing")
-    try:
-        values = [int(v) for v in raw.split(",")]
-    except ValueError as exc:
-        raise ProtocolError(f"ST: field {key!r} invalid") from exc
+    parts = raw.split(",")
+    if not all(_DEC.fullmatch(v) for v in parts):
+        raise ProtocolError(f"ST: field {key!r} invalid")
+    values = [int(v) for v in parts]
     if len(values) != count or any(not low <= v <= high for v in values):
         raise ProtocolError(f"ST: field {key!r} must have {count} values in {low}..{high}")
     return values
@@ -205,12 +224,9 @@ def parse_state(msg: Message) -> BoardState:
     if msg.type != "ST":
         raise ProtocolError(f"expected ST, got {msg.type}")
     pc = msg.get("pc", "")
-    if len(pc) != 2 * NUM_BUTTONS:
+    if not _PRESS_COUNTS.fullmatch(pc):
         raise ProtocolError("ST: field 'pc' must have 32 hex digits")
-    try:
-        counts = [int(pc[i:i + 2], 16) for i in range(0, len(pc), 2)]
-    except ValueError as exc:
-        raise ProtocolError("ST: field 'pc' invalid") from exc
+    counts = [int(pc[i:i + 2], 16) for i in range(0, len(pc), 2)]
     sw17 = msg.get("s17")
     sw18 = msg.get("s18")
     if sw17 not in ("U", "D") or sw18 not in ("U", "C", "D"):
@@ -218,10 +234,8 @@ def parse_state(msg: Message) -> BoardState:
     led_mode = msg.get("lm")
     if led_mode not in LED_MODES:
         raise ProtocolError(f"ST: unknown LED mode {led_mode!r}")
-    buttons = msg.int("b", 16)
-    leds = msg.int("l", 16)
-    if not 0 <= buttons <= 0xFFFF or not 0 <= leds <= 0xFFFF:
-        raise ProtocolError("ST: mask out of range")
+    buttons = msg.hex4("b")
+    leds = msg.hex4("l")
     return BoardState(
         seq=msg.int("n"),
         time_ms=msg.int("t"),
@@ -236,7 +250,7 @@ def parse_state(msg: Message) -> BoardState:
         jack_right=_flag(msg, "jr"),
         led_mode=led_mode,
         leds=_mask_bits(leds, NUM_LEDS),
-        led_brightness=msg.int("br"),
+        led_brightness=msg.int("br", 0, 100),
     )
 
 
@@ -320,7 +334,7 @@ def parse_sd(msg: Message) -> SdInfo:
     status = msg.get("st")
     if status not in ("NONE", "MOUNTED", "ERROR"):
         raise ProtocolError(f"SD: unknown status {status!r}")
-    info = SdInfo(status=status, fresult=msg.int("res"))
+    info = SdInfo(status=status, fresult=msg.int("res", -1, 255, signed=True))
     if status == "MOUNTED":
         info.fs_type = msg.get("fs", "?")
         info.size_mb = msg.int("mb")
@@ -349,7 +363,7 @@ def parse_sys(msg: Message) -> SysInfo:
         tx_drop=msg.int("txdrop"),
         rx_ok=msg.int("rxok"),
         rx_bad=msg.int("rxbad"),
-        rate_hz=msg.int("rate"),
+        rate_hz=msg.int("rate", 10, 100),
     )
 
 

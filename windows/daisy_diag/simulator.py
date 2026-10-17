@@ -59,6 +59,11 @@ class SimulatedDevice:
         self.corrupt_next_frame = False
         self.sd_test_duration = 0.0  # seconds the firmware main loop blocks in SDTEST
         self._busy_until = -1e9
+        # Like the firmware's 1 KiB USB receive ring: bytes arriving while the main loop
+        # is blocked wait here and are processed afterwards; excess bytes are lost.
+        self._rx_pending = bytearray()
+        self.rx_overflow = 0
+        self._keepalive_after_block = False
         self._parser = p.FrameParser()
         self._out = bytearray()
         self._streaming = False
@@ -88,16 +93,34 @@ class SimulatedDevice:
         self.inputs.sw18 = position
 
     # ---- host <-> device byte streams ----------------------------------------------
+    RX_RING_SIZE = 1024
+
     def receive(self, data: bytes, now: float) -> None:
         self._boot(now)
-        for body in self._parser.feed(data):
-            self._handle(body, now)
+        free = self.RX_RING_SIZE - len(self._rx_pending)
+        self._rx_pending += data[:free]
+        self.rx_overflow += max(0, len(data) - free)
+        self._process_rx(now)
+
+    def _process_rx(self, now: float) -> None:
+        if now >= self._busy_until and self._keepalive_after_block:
+            # As in the firmware: the blocked time does not count as host silence.
+            self._keepalive_after_block = False
+            if self._streaming:
+                self._last_rx = now
+        # Byte by byte, like the firmware main loop: an SDTEST blocks everything after it.
+        while self._rx_pending and now >= self._busy_until:
+            byte = bytes(self._rx_pending[:1])
+            del self._rx_pending[:1]
+            for body in self._parser.feed(byte):
+                self._handle(body, now)
 
     def output(self, now: float) -> bytes:
         """Returns all bytes the device sent since the previous call."""
         self._boot(now)
         if now < self._busy_until:
             return b""  # main loop blocked in the SD driver: nothing is sent
+        self._process_rx(now)
         if self.responsive:
             self._run_main_loop(now)
         data = bytes(self._out)
@@ -109,6 +132,9 @@ class SimulatedDevice:
         if self._boot_time is None:
             self._boot_time = now
 
+    def _uptime(self, now: float) -> float:
+        return 0.0 if self._boot_time is None else now - self._boot_time
+
     def _send(self, body: str) -> None:
         frame = bytearray(p.build_frame(body))
         if self.corrupt_next_frame:
@@ -118,7 +144,12 @@ class SimulatedDevice:
         self.tx_ok += 1
 
     def host_active(self, now: float) -> bool:
-        return self._streaming and now - self._last_rx < HOST_TIMEOUT_S
+        self._expire(now)
+        return self._streaming
+
+    def _expire(self, now: float) -> None:
+        if self._streaming and now - self._last_rx >= HOST_TIMEOUT_S:
+            self._streaming = False  # only a new HELLO restarts the stream
 
     def computed_leds(self, now: float) -> int:
         if self.led_mode == "OFF":
@@ -128,11 +159,12 @@ class SimulatedDevice:
         if self.led_mode == "MASK":
             return self.led_mask
         if self.led_mode == "CHASE":
-            elapsed_ms = int((now - (self._boot_time or now)) * 1000)
+            elapsed_ms = int(self._uptime(now) * 1000)
             return 1 << (elapsed_ms // self.chase_ms % p.NUM_LEDS)
         return sum(1 << i for i, b in enumerate(self.inputs.buttons) if b)
 
     def _handle(self, body: str, now: float) -> None:
+        self._expire(now)
         self._last_rx = now
         msg = p.parse_message(body)
         t = msg.type
@@ -167,6 +199,7 @@ class SimulatedDevice:
         elif t == "SDTEST":
             if self.inputs.sd_card:
                 self._busy_until = now + self.sd_test_duration
+                self._keepalive_after_block = True
             self._send(self._sd_result())
         elif t == "BYE":
             self._streaming = False
@@ -199,11 +232,10 @@ class SimulatedDevice:
                 f"ent={self.sd_entries}")
 
     def state(self, now: float) -> p.BoardState:
-        boot = self._boot_time or now
         leds = self.computed_leds(now)
         return p.BoardState(
             seq=self._seq,
-            time_ms=int((now - boot) * 1000) & 0xFFFFFFFF,
+            time_ms=int(self._uptime(now) * 1000) & 0xFFFFFFFF,
             buttons=list(self.inputs.buttons),
             press_counts=list(self.inputs.press_counts),
             pots=list(self.inputs.pots),
@@ -223,10 +255,12 @@ class SimulatedDevice:
         self._seq = (self._seq + 1) & 0xFFFFFFFF
         self._last_state = now
         self._last_sent = self.inputs.digital()
-        boot = self._boot_time or now
-        self._send(f"SYS up={int(now - boot)} cbhz=1000 txok={self.tx_ok} txbusy=0 "
-                   f"txdrop=0 rxok={self._parser.ok} rxbad={self._parser.errors} host=1 "
-                   f"rate={self.rate_hz}")
+        self._send_sys(now)
+
+    def _send_sys(self, now: float) -> None:
+        self._send(f"SYS up={int(self._uptime(now))} cbhz=1000 txok={self.tx_ok} txbusy=0 "
+                   f"txdrop=0 rxok={self._parser.ok} "
+                   f"rxbad={self._parser.errors + self.rx_overflow} host=1 rate={self.rate_hz}")
         self._last_sys = now
 
     def _run_main_loop(self, now: float) -> None:
@@ -243,11 +277,7 @@ class SimulatedDevice:
             self._last_state = now if changed or behind >= 2 * period else self._last_state + period
             self._last_sent = self.inputs.digital()
         if now - self._last_sys >= 1.0 - 1e-6:
-            boot = self._boot_time or now
-            self._send(f"SYS up={int(now - boot)} cbhz=1000 txok={self.tx_ok} txbusy=0 "
-                       f"txdrop=0 rxok={self._parser.ok} rxbad={self._parser.errors} "
-                       f"host=1 rate={self.rate_hz}")
-            self._last_sys = now
+            self._send_sys(now)
 
 
 class SimulatedLink:

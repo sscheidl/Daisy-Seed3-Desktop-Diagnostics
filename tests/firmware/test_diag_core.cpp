@@ -159,6 +159,12 @@ void TestFields() {
     CHECK_STR(v, "ON");
     CHECK(ddp::FindField("X e=", "e", v, sizeof(v)));
     CHECK_STR(v, "");
+    CHECK(ddp::LookupField("LED m=ON", "m", v, sizeof(v)) == ddp::Lookup::Found);
+    CHECK(ddp::LookupField("LED m=ON", "br", v, sizeof(v)) == ddp::Lookup::Missing);
+    CHECK(ddp::LookupField("LED br=1234567890123456", "br", v, sizeof(v))
+          == ddp::Lookup::TooLong);
+    CHECK_STR(v, "");
+    CHECK(ddp::LookupField("LED br=123456789012345", "br", v, sizeof(v)) == ddp::Lookup::Found);
 
     ddp::MessageType("HELLO proto=1", v, sizeof(v));
     CHECK_STR(v, "HELLO");
@@ -272,16 +278,24 @@ void TestSession() {
     CHECK_STR(Handle(s, "HELLO proto=1", 100, &req),
               "HELLO proto=1 fw=0.1.0 app=DaisyDiagnostic dev=seed3-desktop boot=BOOT_SRAM "
               "bl=v6_1 libdaisy=f715e48 caps=btn,pot,potraw,sw17,sw18,sd,sdread,jack,led");
-    CHECK(req == diag::kRequestState);
+    CHECK(req == (diag::kRequestState | diag::kRequestNewSession));
     CHECK(s.HostActive(100));
     CHECK(s.HostActive(100 + diag::kHostTimeoutMs - 1));
-    CHECK(!s.HostActive(100 + diag::kHostTimeoutMs));
-    Handle(s, "PING n=1", 3000);
+    Handle(s, "PING n=1", 3000);  // keep-alive just before the timeout
     CHECK(s.HostActive(5999));
     CHECK(!s.HostActive(6000));
+    // After a timeout only HELLO restarts the stream; PING is still answered.
+    CHECK_STR(Handle(s, "PING n=2", 7000, &req), "PONG n=2");
+    CHECK(req == diag::kRequestNone);
+    CHECK(!s.HostActive(7001));
+    // ... even if HostActive() was not polled while the timeout elapsed.
+    Handle(s, "HELLO proto=1", 8000);
+    CHECK_STR(Handle(s, "PING n=3", 11500), "PONG n=3");
+    CHECK(!s.HostActive(11501));
     // Millisecond counter wrap-around.
-    Handle(s, "PING n=2", 0xffffff00u);
+    Handle(s, "HELLO proto=1", 0xffffff00u);
     CHECK(s.HostActive(0x100));
+    CHECK(!s.HostActive(0xffffff00u + diag::kHostTimeoutMs));
 
     CHECK_STR(Handle(s, "GET", 1, &req), "");
     CHECK(req == diag::kRequestState);
@@ -309,6 +323,11 @@ void TestSession() {
     CHECK_STR(Handle(s, "LED m=ON br=101", 1), "ERR c=LED e=ARG");
     CHECK_STR(Handle(s, "LED m=ON ms=19", 1), "ERR c=LED e=ARG");
     CHECK_STR(Handle(s, "LED m=ON ms=2001", 1), "ERR c=LED e=ARG");
+    // Values too long for the parse buffer are invalid, not absent.
+    CHECK_STR(Handle(s, "LED m=ON br=100000000000", 1), "ERR c=LED e=ARG");
+    CHECK_STR(Handle(s, "LED m=ON mask=000000000000FFFF", 1), "ERR c=LED e=ARG");
+    CHECK_STR(Handle(s, "LED m=ON ms=000000000000100", 1), "ERR c=LED e=ARG");
+    CHECK_STR(Handle(s, "LED m=OOOOOOOOOOOOOOOOOFF", 1), "ERR c=LED e=ARG");
     CHECK(s.settings.led_mode == before.led_mode && s.settings.led_mask == before.led_mask
           && s.settings.led_brightness == before.led_brightness
           && s.settings.chase_step_ms == before.chase_step_ms);

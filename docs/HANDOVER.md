@@ -1,7 +1,8 @@
 # Technischer Übergabebericht – Daisy Seed3 Hardware Diagnostic Suite
 
 Für die unabhängige Prüfung (z. B. durch OpenAI Codex). Stand 17.10.2026,
-Branch `feat/hardware-diagnostics`, Version Firmware 0.1.0 / Anwendung 0.1.0 /
+zuletzt aktualisiert mit den Korrekturen zum Codex-Review von `6f709ec`
+(Abschnitt 9), Branch `fix/codex-review-findings`, Version Firmware 0.1.0 / Anwendung 0.1.0 /
 Protokoll DDP v1.
 
 **Kurzfassung:** Firmware und Windows-Anwendung sind implementiert, die Firmware ist
@@ -20,8 +21,9 @@ aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
 * 1-kHz-Steuertakt im Audiocallback (48 kHz/48), Audioausgänge stumm.
 * 16 LEDs über PCA9685-DMA-Treiber: Aus, Ein, Einzeln (Bitmaske), Lauflicht,
   Taster → LED (Standard), Helligkeit 0–100 %.
-* Optionaler microSD-Test: nur `f_mount`/`f_opendir`/`f_readdir`/`f_closedir`;
-  Build prüft, dass keine schreibenden FatFs-Funktionen gelinkt sind.
+* Optionaler microSD-Test: nur `f_mount`/`f_opendir`/`f_readdir`/`f_closedir` über einen
+  eigenen schreibgeschützten, zeitbegrenzten Disk-Treiber; der Build prüft, dass kein
+  SD-Schreib-, Lösch- oder Sperrbefehl gelinkt ist (SDMMC, HAL, Treiber, FatFs).
 * USB CDC über J7 mit `UsbHandle` (nicht blockierend, ISR → Ringpuffer → Hauptschleife).
 * Protokoll DDP v1: CRC-16-Rahmen, Handshake mit Protokollversion, vollständige
   Zustandsrahmen 20–100 Hz (Standard 50 Hz) plus sofortige Rahmen bei Eingangsänderung
@@ -58,8 +60,10 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
 | --- | --- |
 | ARM-Cross-Compile (xPack GCC 13.2.1-1.1, Windows) | bestanden, reproduzierbar |
 | Binärprüfung BOOT_SRAM + nur lesende FatFs-Symbole | bestanden |
-| C++-Host-Tests (MSVC `/W4 /WX`) | 325/325 bestanden |
-| Python-Tests (Protokoll, Sitzung, GUI offscreen) | 142/142 bestanden |
+| C++-Host-Tests Kern + Protokoll (MSVC `/W4 /WX`) | 339/339 Prüfungen bestanden |
+| C++-Host-Tests Hauptschleife `diag_app` (MSVC `/W4 /WX`) | 635/635 Prüfungen bestanden |
+| Python-Tests (Protokoll, Sitzung, Simulator, GUI offscreen) | 162/162 bestanden |
+| Gegenprobe SD-Symbolprüfung (eingeschleuster `f_open(…, FA_WRITE)`) | wird erkannt |
 | GUI- und EXE-Start im Simulationsmodus | bestanden |
 | GitHub Actions (g++, ASan/UBSan, Linux-Cross-Compile, Windows-Tests, EXE) | Workflow `diagnostics.yml` angelegt; Ergebnis siehe Pull Request |
 | **Alle Hardwaretests H1–H11** | **ausstehend** |
@@ -70,11 +74,13 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
    Klinkenerkennung (aus libDaisy übernommen), Zuordnung U/C/D zur realen Hebelrichtung
    von SW17/SW18, Poti-Endwerte, tatsächliche USB-Enumeration an J7 mit dieser Firmware.
 2. **libDaisy `CDC_Transmit_HS()` ohne NULL-Prüfung.** Umgangen durch Prüfung von
-   `hUsbDeviceHS.dev_state` (globales Symbol aus libDaisy `usb.cpp`). Bei einem
-   libDaisy-Update erneut prüfen.
-3. **SD-Treiber blockiert bis 30 s** (`SD_TIMEOUT` in libDaisy `sd_diskio.c`).
-   Der Host toleriert das während eines angeforderten SD-Tests; andernfalls
-   Verbindungsfehler + automatische Wiederverbindung.
+   `hUsbDeviceHS.dev_state`/`pClassData` und Start des Transfers bei per `BASEPRI`
+   maskiertem USB-Interrupt (globales Symbol aus libDaisy `usb.cpp`). Nur per Review
+   geprüft; bei einem libDaisy-Update erneut prüfen.
+3. **SD-Test blockiert die Hauptschleife.** Lesezugriffe sind auf 1 s je Vorgang und
+   5 s je Test begrenzt; `HAL_SD_Init` nur durch HAL-Zeitgrenzen. Der Host toleriert
+   20 s, die blockierte Zeit zählt nicht gegen die Host-Überwachung der Firmware.
+   Der eigene Lesetreiber ist nicht an Hardware erprobt.
 4. **Geteilte USB-Kennung 0483:5740.** Fremde STM32-VCP-Geräte erhalten beim Suchen
    einen `$HELLO proto=1*…`-Textrahmen und werden nach 1 s ohne passende Antwort
    für 5 s übersprungen. Mit `--port` lässt sich die Suche auf einen Port beschränken.
@@ -83,12 +89,18 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
 6. **LED-Treiber** (libDaisy): möglicher dauerhafter Wartezustand nach fehlgeschlagenem
    DMA-Start, wie in `docs/HARDWARE.md` für das Toy Piano beschrieben.
 7. **Host schließt ohne `BYE`:** Firmware sendet noch bis zu 3 s in einen nicht
-   abgeholten Endpunkt; verworfene Rahmen werden in `SYS txdrop` gezählt. Beim
-   nächsten Öffnen gelesene Altdaten werden vom Parser verworfen.
+   abgeholten Endpunkt; verworfene Rahmen werden in `SYS txdrop` gezählt. Ein neues
+   `HELLO` verwirft wartende Altdaten; bereits übergebene Pakete liest der Host beim
+   nächsten Öffnen noch, sein Parser verwirft sie.
 8. **Hauptschleife ohne Pause** (Polling); unkritisch für Funktion, nicht energieoptimiert.
 9. **EXE unsigniert** → SmartScreen-Warnung möglich. 46,9 MB (Qt-Laufzeit).
-10. FatFs ist in libDaisy nicht als `_FS_READONLY` konfiguriert; „nur lesen“ ist durch
-    den Code und die Symbolprüfung im Build abgesichert, nicht durch die FatFs-Konfiguration.
+10. FatFs ist in libDaisy nicht als `_FS_READONLY` konfiguriert (eine Umstellung würde
+    das `FATFS`-Layout gegenüber dem vorkompilierten libDaisy ändern). „Nur lesen“ ist
+    dreifach abgesichert: Aufrufpfad, schreibgeschützter Treiber (`STA_PROTECT`,
+    `RES_WRPRT`) und Build-Prüfung, dass kein Schreib-/Löschbefehl gelinkt ist.
+11. **Firmwaretests ohne Hardware:** `main.cpp` (Audiocallback, CDC-Sender, SD-Treiber,
+    LED-Ansteuerung) wird nur kompiliert. Alles andere der Hauptschleife läuft in
+    `diag_app` und ist mit Fake-Board/-USB getestet.
 
 ## 5. Firmware- und Bootloader-Kompatibilität
 
@@ -108,9 +120,9 @@ Lokal unter `diagnostics/release/` (nicht in Git), in CI als Workflow-Artefakte:
 
 | Datei | Größe | SHA-256 |
 | --- | --- | --- |
-| `DaisyDiagnostic.bin` | 126 760 B | `bf5eda87144ac74eaf9a496189eb75da475f68a67ccbe2c9555c49822f576344` |
-| `DaisyDiagnostic.elf` | 2 338 756 B | `0a070271fa759ca728fda78eeed54e014f8b07c47c70a84b22b0b789f053d4c5` |
-| `DaisyDiagnostic.exe` | 46 861 814 B | `68bf0e6b77902249fe65f36b828a20077e3fe33cf04bb364141b3f7a20856dd6` |
+| `DaisyDiagnostic.bin` | 122 152 B | `5246380984e199368a30c545b45d1263493903ad02a864bde2f04f17c0d15dc0` |
+| `DaisyDiagnostic.elf` | 2 170 824 B | `ba9f67c0373b6382204877ed53c293c7668c5d1db6972362a943e53f9fbd5ace` |
+| `DaisyDiagnostic.exe` | – | wird vom Workflow „Hardware diagnostics“ gebaut (Artefakt) |
 
 Die CI baut die `.bin` unter Linux mit derselben GCC-Version; die Prüfsumme kann wegen
 abweichender Pfade in Debug-Informationen bei der `.elf` abweichen. PyInstaller-EXEs
@@ -121,9 +133,10 @@ sind nicht bit-reproduzierbar.
 Empfohlene Reihenfolge und Schwerpunkte:
 
 1. `diagnostics/protocol/PROTOCOL.md` gegen `ddp.cpp` und `windows/daisy_diag/protocol.py`.
-2. `firmware/src/main.cpp`: Nebenläufigkeit (Audiocallback ↔ Hauptschleife,
-   USB-ISR ↔ Ringpuffer), Zwei-Puffer-Senden, `dev_state`-Prüfung, SDRAM-Platzierung
-   der FatFs-Objekte, NVIC-Prioritäten.
+2. `firmware/src/main.cpp`: Nebenläufigkeit (Audiocallback ↔ Hauptschleife),
+   `BASEPRI`-geschützter CDC-Sender, schreibgeschützter SD-Treiber (DMA, Cache-Pflege,
+   Zeitgrenzen, Neuinitialisierung), SDRAM-Platzierung, NVIC-Prioritäten.
+   `firmware/src/diag_app.cpp`, `ring_buffer.h`: Hauptschleife, Sendepuffer, Empfangsring.
 3. `firmware/src/diag_core.cpp`: Befehlsvalidierung, Host-Timeout mit Überlauf von `GetNow()`.
 4. `windows/daisy_diag/session.py`: Zustandsautomat, Zeitüberwachung, SD-Toleranz,
    Port-Backoff.
@@ -174,3 +187,32 @@ Vorbereitung: Bootloader v6.x External vorhanden (sonst
     „Wiederverbindungen“ +1.
 11. Ergebnisse in [TEST_REPORT.md](TEST_REPORT.md) Abschnitt B eintragen
     (bestanden/fehlgeschlagen, Beobachtungen, Firmware-SHA-256).
+
+## 9. Codex-Review von `6f709ec`: Befunde und Korrekturen
+
+| # | Befund | Korrektur | Nachweis |
+| --- | --- | --- | --- |
+| P1 | USB-Reset zwischen Zustandsprüfung und `TransmitExternal()` | Prüfung und Transferstart bei per `BASEPRI` maskiertem USB-Interrupt (`CdcSink`, `main.cpp`) | Review (hardwarenah, nicht host-testbar) |
+| P2 | SD nach Kartenwechsel/Fehlversuch nicht neu initialisiert | eigener Treiber wird vor jedem Test neu verknüpft (setzt FatFs-Merker zurück), vorher `HAL_SD_DeInit` | Review; Quellcode von `disk_initialize`/`FATFS_LinkDriverEx` geprüft |
+| P2 | Symbolprüfung unvollständig (`f_open`) | Prüfung auf allen Ebenen (SDMMC-Befehle, HAL, BSP, FatFs inkl. `f_open`) + Pflichtsymbole; schreibgeschützter Treiber | Gegenprobe: eingeschleuster `f_open(…, FA_WRITE)` → `make check` scheitert |
+| P3 | Kein Backoff bei Handshake-I/O-Fehlern | jeder Abbruch im Handshake sperrt den Port 5 s; nach Schreibfehler sofort nächster Port | `test_handshake_io_error_backs_off_and_tries_next_port[write/read]` |
+| P2 | 35-s-SD-Toleranz falsch begründet | Lesezugriffe in der Firmware begrenzt (1 s/Vorgang, 5 s/Test); Host 20 s; Doku korrigiert | `test_slow_sd_card_does_not_drop_connection` |
+| P2 | Simulator verarbeitet Befehle während SD-Blockade | Simulator puffert wie der 1-KiB-Ring, inkl. Überlauf | `test_commands_wait_while_firmware_is_blocked`, `test_rx_ring_overflow_while_blocked_is_counted` |
+| P2 | `ACK c=BYE` wurde verworfen | kein Verwerfen beim Stream-Ende; erst neues `HELLO` verwirft Altdaten | C++ `TestByeIsAcknowledged`, `TestNewSessionDropsStaleOutput` |
+| P2 | Lücken ≥ 1000 nicht gezählt | alle Lücken gezählt, 32-Bit-Überlauf erkannt, Rücksprünge protokolliert | `test_large_sequence_gap_is_counted`, `test_sequence_gap_rules` |
+| P3 | PING belebt Stream nach Timeout | Timeout beendet den Stream endgültig (Firmware und Simulator) | C++ `TestSession`, `TestTimeoutNeedsNewHello`; Python `test_ping_after_timeout_does_not_restart_stream` |
+| P3 | Überlange optionale LED-Felder als fehlend behandelt | `LookupField()` unterscheidet `Missing`/`TooLong`; Befehl wird abgewiesen | C++ `TestSession`, `TestFields`, `TestLeds` |
+| P3 | Python-Parser zu tolerant | strikte Ziffern-/Hex-Prüfung, Bereiche für `n`, `t`, `br`, `pc`, `b`, `l`, `p`, `r`, SD, SYS | 12 neue Fälle in `test_invalid_state_content_is_rejected` |
+| P3 | Simulator-Start bei Zeit 0 | `_boot_time is None` statt Wahrheitswert | `test_simulator_clock_starting_at_zero` |
+
+Zusätzlich gefunden beim Beheben: Mit P9 hätte ein langer SD-Test den Datenstrom
+beendet, weil die während der Blockade gepufferten PINGs erst danach verarbeitet
+werden. Die Dauer eines angeforderten SD-Tests zählt deshalb nicht als Funkstille
+(C++ `TestBlockingSdTestKeepsStream`, Python `test_slow_sd_card_does_not_drop_connection`).
+
+Neue Regressionstests der Hauptschleife (`tests/firmware/test_diag_app.cpp`):
+Handshake, Rate und Sequenz, Änderungsrahmen, BYE, Timeout, USB nicht bereit,
+belegter Endpunkt mit Pufferüberlauf und Prüfung, dass ein übergebener Puffer nicht
+verändert wird, veraltete Daten bei neuer Sitzung, Empfangsring-Überlauf mit
+Resynchronisation, Ring-Indexüberlauf und Vollzustand, LED-Ratenbegrenzung, SD-Anfragen.
+`make test-sanitize` (ASan/UBSan) benötigt g++ und läuft im GitHub-Workflow.

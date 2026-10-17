@@ -74,8 +74,13 @@ Host                                    Seed3
 
 * Die Firmware sendet Zustandsdaten nur, solange ein Host aktiv ist: nach `HELLO`
   und solange innerhalb von **3 s** ein gültiger Rahmen eintrifft. Danach (oder nach
-  `BYE`) schweigt sie bis zum nächsten `HELLO`. Ein zufällig geöffnetes
+  `BYE`) schweigt sie bis zum nächsten `HELLO`; ein späteres `PING` wird zwar mit
+  `PONG` beantwortet, startet den Datenstrom aber nicht wieder. Die Dauer eines
+  angeforderten SD-Tests zählt nicht als Funkstille. Ein zufällig geöffnetes
   Terminal erhält so keinen ungefragten Datenstrom.
+* Antworten bleiben auch nach dem Ende des Datenstroms in der Sendewarteschlange
+  (z. B. `ACK c=BYE`). Ein neues `HELLO` verwirft noch nicht gesendete Rahmen einer
+  früheren Sitzung.
 * Der Host sendet zweimal pro Sekunde `PING` und gilt als getrennt, wenn **1,5 s**
   lang kein gültiger Rahmen eintrifft oder der COM-Port verschwindet. Danach sucht
   er jede Sekunde erneut nach dem Gerät und wiederholt den Handshake.
@@ -98,7 +103,10 @@ Host                                    Seed3
 | `BYE` | – | `ACK c=BYE`, Streaming aus |
 
 Fehler: `ERR c=<Befehl> e=<Code>` mit `UNKNOWN` (unbekannter Befehl),
-`ARG` (fehlendes/ungültiges Feld) oder `PROTO` (nicht unterstützte Protokollversion).
+`ARG` (fehlendes/ungültiges Feld, auch ein zu langer Wert in einem optionalen Feld;
+der Befehl wird dann vollständig verworfen) oder `PROTO` (nicht unterstützte
+Protokollversion). Zahlen bestehen nur aus Ziffern (kein Vorzeichen, kein `_`);
+der Host verwirft Zustandsrahmen mit Werten außerhalb der angegebenen Bereiche.
 `ERR` wird nur für vollständige Rahmen mit gültiger CRC erzeugt.
 
 LED-Modi:
@@ -175,10 +183,13 @@ SD st=ERROR res=13
 | `ERROR` | Zugriff fehlgeschlagen; `res` ist der FatFs-`FRESULT` (z. B. `3` = `FR_NOT_READY`, `13` = `FR_NO_FILESYSTEM`) |
 
 Der Test ruft ausschließlich `f_mount`, `f_opendir`, `f_readdir`, `f_closedir` und
-das Aushängen auf. Er schreibt, formatiert oder verändert nichts. Der Build prüft,
-dass keine schreibenden FatFs-Funktionen (`f_write`, `f_mkfs`, `f_unlink`, …) in die
-Firmware gelinkt werden. Während des Tests (typisch < 0,5 s) pausiert der Datenstrom;
-Tastendrücke gehen dank `pc` nicht verloren.
+das Aushängen auf, über einen eigenen schreibgeschützten Disk-Treiber (`STA_PROTECT`).
+Er schreibt, formatiert oder verändert nichts. Der Build prüft, dass kein SD-Schreib-,
+Lösch- oder Sperrbefehl gelinkt ist (SDMMC, HAL, Treiber, FatFs), siehe
+[FIRMWARE.md](../docs/FIRMWARE.md). Während des Tests pausiert der Datenstrom
+(typisch < 0,5 s; Lesezugriffe begrenzt auf 5 s je Test zuzüglich Initialisierung).
+Der Host toleriert dabei bis zu 20 s. Tastendrücke gehen dank `pc` nicht verloren.
+Vor jedem Test wird die Karte neu initialisiert (Kartenwechsel möglich).
 
 ### `ACK`, `ERR`, `PONG`
 

@@ -21,9 +21,11 @@ PING_INTERVAL_S = 0.5
 SCAN_INTERVAL_S = 1.0
 FAILED_PORT_BACKOFF_S = 5.0
 ERROR_DISPLAY_S = 3.0
-# libDaisy's SD_read() busy-waits up to SD_TIMEOUT (30 s) in the firmware main loop,
-# which also pauses the data stream. Tolerate that while an SD test is pending.
-SD_TEST_TIMEOUT_S = 35.0
+# The firmware main loop is blocked during an SD test, so the data stream pauses.
+# The firmware bounds all reads of one test to 5 s (+1 s for the running operation);
+# card initialisation is bounded by the HAL timeouts. Tolerate that, with margin,
+# while an SD test is pending; afterwards the normal RX timeout applies again.
+SD_TEST_TIMEOUT_S = 20.0
 
 
 @dataclass(frozen=True)
@@ -230,6 +232,17 @@ class DeviceSession:
         self.state_rate_hz = float(len(self._state_times))
 
     # ---- internals --------------------------------------------------------------------
+    def _sequence_gap(self, previous: int, current: int) -> int:
+        """Number of ST frames lost between two received sequence numbers."""
+        if current > previous:
+            return current - previous - 1
+        if previous >= 0xFFFF0000 and current < 0x10000:  # 32-bit wrap-around
+            return (current - previous - 1) & 0xFFFFFFFF
+        # Repeated or decreasing number: not a loss. Cannot happen with this firmware
+        # within one connection (a firmware restart drops the USB link), so report it.
+        self._event("log", f"Unerwartete Sequenznummer {current} nach {previous}")
+        return 0
+
     def _event(self, kind: str, payload: object = None) -> None:
         self._events.append((kind, payload))
 
@@ -270,8 +283,9 @@ class DeviceSession:
             self._last_rx = now
             self._set_state(ConnState.HANDSHAKE, f"{port.device}: HELLO gesendet")
             self._next_hello = now + HELLO_RETRY_S
-            self._write(p.cmd_hello())
-            return
+            if self._write(p.cmd_hello()):
+                return
+            # Writing HELLO failed: the port is already backed off, try the next one.
         # Keep an error visible for a moment, and an incompatible device while present.
         if self.state == ConnState.INCOMPATIBLE and candidates:
             return
@@ -294,6 +308,10 @@ class DeviceSession:
     def _drop_link(self, reason: str, state: ConnState) -> None:
         if self._link is not None:
             self._link.close()
+        if self.state == ConnState.HANDSHAKE and self.port:
+            # Any failure before the handshake completed (timeout, read or write error)
+            # backs the port off so other candidate ports get their turn.
+            self._failed_ports[self.port] = self._clock() + FAILED_PORT_BACKOFF_S
         was_connected = self.state == ConnState.CONNECTED
         self._link = None
         self.board = None
@@ -331,9 +349,7 @@ class DeviceSession:
                     return
                 state = p.parse_state(msg)
                 if self.board is not None:
-                    gap = (state.seq - self.board.seq - 1) & 0xFFFFFFFF
-                    if 0 < gap < 1000:
-                        self.lost_frames += gap
+                    self.lost_frames += self._sequence_gap(self.board.seq, state.seq)
                 self.board = state
                 self._state_times.append(now)
                 self._event("board", state)

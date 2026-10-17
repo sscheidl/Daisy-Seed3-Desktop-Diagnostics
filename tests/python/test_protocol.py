@@ -73,9 +73,12 @@ def test_parse_message_fields():
     msg = p.parse_message("LED m=MASK  mask=8001 br=50 flag")
     assert msg.type == "LED"
     assert msg.fields == {"m": "MASK", "mask": "8001", "br": "50"}
-    assert msg.int("mask", 16) == 0x8001
+    assert msg.hex4("mask") == 0x8001
+    assert msg.int("br", 0, 100) == 50
     with pytest.raises(p.ProtocolError):
         msg.int("missing")
+    with pytest.raises(p.ProtocolError):
+        msg.int("br", 0, 10)
 
 
 ST_EXAMPLE = [b for _, b in load_vectors() if b.startswith("ST ")][0]
@@ -126,6 +129,19 @@ def test_each_pot(index):
     ST_EXAMPLE.replace("sd=0", "sd=2"),
     ST_EXAMPLE.replace(" b=0001", ""),
     ST_EXAMPLE.replace("b=0001", "b=zz"),
+    # P11: values int() would accept but the protocol does not
+    ST_EXAMPLE.replace("n=1234", "n=-1"),
+    ST_EXAMPLE.replace("n=1234", "n=+5"),
+    ST_EXAMPLE.replace("n=1234", "n=4294967296"),
+    ST_EXAMPLE.replace("t=56789", "t=1_000"),
+    ST_EXAMPLE.replace("pc=01", "pc=-1"),
+    ST_EXAMPLE.replace("pc=01", "pc=+1"),
+    ST_EXAMPLE.replace("br=100", "br=999"),
+    ST_EXAMPLE.replace("b=0001", "b=001"),
+    ST_EXAMPLE.replace("b=0001", "b=10000"),
+    ST_EXAMPLE.replace("l=0001", "l=-001"),
+    ST_EXAMPLE.replace("p=0,10000,", "p=0,+10000,"),
+    ST_EXAMPLE.replace("r=0,65535,", "r=0,65_535,"),
 ])
 def test_invalid_state_content_is_rejected(bad):
     with pytest.raises(p.ProtocolError):
@@ -156,6 +172,11 @@ def test_sd_and_sys_and_hello():
     assert p.parse_sd(p.parse_message("SD st=NONE res=-1")).status == "NONE"
     with pytest.raises(p.ProtocolError):
         p.parse_sd(p.parse_message("SD st=WEIRD res=0"))
+    with pytest.raises(p.ProtocolError):
+        p.parse_sd(p.parse_message("SD st=MOUNTED res=0 fs=FAT32 mb=-5 ent=1"))
+    with pytest.raises(p.ProtocolError):
+        p.parse_sys(p.parse_message("SYS up=1 cbhz=1000 txok=1 txbusy=0 txdrop=0 rxok=1 "
+                                    "rxbad=0 host=1 rate=500"))
     body = [b for _, b in load_vectors() if b.startswith("SYS ")][0]
     sys_info = p.parse_sys(p.parse_message(body))
     assert sys_info.control_rate_hz == 1000 and sys_info.rate_hz == 50
