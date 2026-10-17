@@ -20,23 +20,21 @@ from . import theme
 from .board import BoardWidget, SdDisplay
 
 LED_MODE_BUTTONS = (
-    ("OFF", "Alle aus"),
-    ("ON", "Alle ein"),
-    ("MASK", "Einzeln"),
-    ("CHASE", "Lauflicht"),
-    ("FOLLOW", "Taster → LED"),
+    ("OFF", 'All off'),
+    ("ON", 'All on'),
+    ("MASK", 'Individual'),
+    ("CHASE", 'Chase'),
+    ("FOLLOW", 'Buttons → LEDs'),
 )
 
 EXTENSIONS = (
-    ("Audio Input/Output", "Audioeingänge J1/J2, Ausgänge J3/J4, Kopfhörer J5. "
-     "Die Firmware gibt Stille aus; nur die Steckererkennung der Eingänge ist implementiert."),
-    ("Audio-Engine / DSP", "Keine Signalverarbeitung in dieser Diagnosefirmware."),
-    ("MIDI DIN", "OUT/THRU/INPUT (USART1, D13/D14). Nicht implementiert."),
-    ("USB-MIDI", "Nicht implementiert. J7 wird für das Diagnoseprotokoll (USB CDC) genutzt."),
-    ("USB-Host", "Nicht implementiert. Host-Fähigkeit und elektrische Voraussetzungen "
-     "(VBUS-Versorgung, Port-Rolle) sind noch nicht anhand der Hardware geprüft."),
-    ("CV Input/Output", "CV IN 1/2 (D20/D21), CV OUT 1/2 (DAC). Nicht implementiert."),
-    ("Gate Input", "GATE IN 1/2 (D0/D18). Nicht implementiert."),
+    ("Audio Input/Output", 'Audio inputs J1/J2, outputs J3/J4, headphones J5. The firmware outputs silence; only input jack detection is implemented.'),
+    ("Audio-Engine / DSP", 'No signal processing in this diagnostic firmware.'),
+    ("MIDI DIN", 'OUT/THRU/INPUT (USART1, D13/D14). Not implemented.'),
+    ("USB-MIDI", 'Not implemented. J7 carries the diagnostic protocol over USB CDC.'),
+    ("USB-Host", 'Not implemented. USB host capability and electrical requirements (VBUS supply and port role) have not been verified on hardware.'),
+    ("CV Input/Output", 'CV IN 1/2 (D20/D21), CV OUT 1/2 (DAC). Not implemented.'),
+    ("Gate Input", 'GATE IN 1/2 (D0/D18). Not implemented.'),
 )
 
 STATE_COLORS = {
@@ -47,11 +45,11 @@ STATE_COLORS = {
     ConnState.INCOMPATIBLE: theme.WARN,
 }
 STATE_TEXT = {
-    ConnState.CONNECTED: "Verbunden",
-    ConnState.HANDSHAKE: "Verbinde …",
-    ConnState.SEARCHING: "Getrennt",
-    ConnState.ERROR: "Verbindungsfehler",
-    ConnState.INCOMPATIBLE: "Protokoll inkompatibel",
+    ConnState.CONNECTED: 'Connected',
+    ConnState.HANDSHAKE: 'Connecting …',
+    ConnState.SEARCHING: 'Disconnected',
+    ConnState.ERROR: 'Connection error',
+    ConnState.INCOMPATIBLE: 'Incompatible protocol',
 }
 
 
@@ -96,8 +94,7 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
         outer.addWidget(self._build_header())
-        self.sim_banner = QLabel("SIMULATION – alle angezeigten Werte sind simulierte Daten, "
-                                 "es ist kein Daisy Seed3 angeschlossen")
+        self.sim_banner = QLabel('SIMULATION – all displayed values are simulated; no Daisy Seed3 is connected')
         self.sim_banner.setObjectName("simBanner")
         self.sim_banner.setAlignment(Qt.AlignCenter)
         outer.addWidget(self.sim_banner)
@@ -113,7 +110,7 @@ class MainWindow(QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(1000)
         self.log.setFixedHeight(130)
-        log_label = QLabel("Ereignisprotokoll")
+        log_label = QLabel('Event log')
         log_label.setObjectName("sectionLabel")
         left_layout.addWidget(log_label)
         left_layout.addWidget(self.log)
@@ -182,17 +179,17 @@ class MainWindow(QMainWindow):
         self.status_dot.setFixedSize(10, 10)
         row.addWidget(self.status_dot)
         row.addSpacing(6)
-        self.status_pill = QLabel("Getrennt")
+        self.status_pill = QLabel('Disconnected')
         self.status_pill.setObjectName("statusText")
         row.addWidget(self.status_pill)
         row.addSpacing(14)
-        self.connect_button = QPushButton("Trennen")
+        self.connect_button = QPushButton('Disconnect')
         self.connect_button.clicked.connect(self._toggle_pause)
         row.addWidget(self.connect_button)
         return header
 
     def _build_connection_group(self) -> QGroupBox:
-        box = QGroupBox("USB-Diagnose")
+        box = QGroupBox('USB diagnostics')
         layout = QVBoxLayout(box)
         self.status_detail = QLabel("")
         self.status_detail.setObjectName("hint")
@@ -202,7 +199,7 @@ class MainWindow(QMainWindow):
         port_row = QHBoxLayout()
         port_row.addWidget(QLabel("Port:"))
         self.port_combo = QComboBox()
-        self.port_combo.addItem("Automatisch (VID 0483 / PID 5740)", None)
+        self.port_combo.addItem('Automatic (VID 0483 / PID 5740)', None)
         self.port_combo.currentIndexChanged.connect(self._port_selected)
         port_row.addWidget(self.port_combo, 1)
         layout.addLayout(port_row)
@@ -210,17 +207,17 @@ class MainWindow(QMainWindow):
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight)
         self.info = {}
-        for key, label in (("port", "Port"), ("fw", "Firmware"), ("proto", "Protokoll"),
-                           ("boot", "Anwendung / Bootloader"), ("rate", "Zustandsrate"),
-                           ("frames", "Rahmen ok / Fehler"), ("lost", "Verlorene Rahmen"),
-                           ("rtt", "Antwortzeit (PING)"), ("cb", "Steuer-Update-Rate"),
-                           ("uptime", "Firmware-Laufzeit"), ("fwstats", "Firmware TX / RX"),
-                           ("reconnects", "Wiederverbindungen")):
+        for key, label in (("port", "Port"), ("fw", "Firmware"), ("proto", 'Protocol'),
+                           ("boot", 'Application / bootloader'), ("rate", 'State rate'),
+                           ("frames", 'Frames OK / errors'), ("lost", 'Lost frames'),
+                           ("rtt", 'Round-trip time (PING)'), ("cb", 'Control update rate'),
+                           ("uptime", 'Firmware uptime'), ("fwstats", "Firmware TX / RX"),
+                           ("reconnects", 'Reconnections')):
             self.info[key] = _value_label()
             form.addRow(label + ":", self.info[key])
         layout.addLayout(form)
         rate_row = QHBoxLayout()
-        rate_row.addWidget(QLabel("Datenrate:"))
+        rate_row.addWidget(QLabel('Stream rate:'))
         self.rate_combo = QComboBox()
         for hz in (20, 50, 100):
             self.rate_combo.addItem(f"{hz} Hz", hz)
@@ -235,21 +232,19 @@ class MainWindow(QMainWindow):
     def _build_sim_group(self) -> QGroupBox:
         box = QGroupBox("Simulation")
         layout = QVBoxLayout(box)
-        hint = QLabel("Im Board klicken: Taster drücken, Potis ziehen oder mit dem Mausrad "
-                      "drehen, Kippschalter oben/mitte/unten anklicken, microSD und "
-                      "Audioeingänge anklicken.")
+        hint = QLabel('Click the board to press buttons, drag knobs or turn them with the mouse wheel, select toggle positions, and toggle the microSD card or audio input plugs.')
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         layout.addWidget(hint)
         grid = QGridLayout()
-        self.sim_plug = QPushButton("USB-Kabel ziehen")
+        self.sim_plug = QPushButton('Unplug USB cable')
         self.sim_plug.clicked.connect(self._sim_toggle_cable)
-        self.sim_freeze = QPushButton("Firmware hängt")
+        self.sim_freeze = QPushButton('Freeze firmware')
         self.sim_freeze.setCheckable(True)
         self.sim_freeze.toggled.connect(self._sim_set_freeze)
-        self.sim_noise = QPushButton("Fehlerhaften Rahmen senden")
+        self.sim_noise = QPushButton('Send corrupt frame')
         self.sim_noise.clicked.connect(self._sim_corrupt)
-        self.sim_demo = QPushButton("Demo-Animation")
+        self.sim_demo = QPushButton('Demo animation')
         self.sim_demo.setCheckable(True)
         self.sim_demo.toggled.connect(self._sim_demo_toggled)
         grid.addWidget(self.sim_plug, 0, 0)
@@ -257,23 +252,23 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.sim_noise, 1, 0)
         grid.addWidget(self.sim_demo, 1, 1)
         layout.addLayout(grid)
-        self.sim_sd_card = QCheckBox("microSD-Karte gesteckt")
+        self.sim_sd_card = QCheckBox('microSD card inserted')
         self.sim_sd_card.toggled.connect(self._sim_set_sd)
-        self.sim_sd_fs = QCheckBox("Karte hat lesbares FAT32-Dateisystem")
+        self.sim_sd_fs = QCheckBox('Card has a readable FAT32 filesystem')
         self.sim_sd_fs.setChecked(True)
         self.sim_sd_fs.toggled.connect(
             lambda on: self._sim_device() and setattr(self._sim_device(), "sd_filesystem",
                                                       "FAT32" if on else None))
-        self.sim_jl = QCheckBox("Audioeingang links gesteckt")
+        self.sim_jl = QCheckBox('Left audio input plugged in')
         self.sim_jl.toggled.connect(lambda on: self._sim_set_jack("left", on))
-        self.sim_jr = QCheckBox("Audioeingang rechts gesteckt")
+        self.sim_jr = QCheckBox('Right audio input plugged in')
         self.sim_jr.toggled.connect(lambda on: self._sim_set_jack("right", on))
         for w in (self.sim_sd_card, self.sim_sd_fs, self.sim_jl, self.sim_jr):
             layout.addWidget(w)
         return box
 
     def _build_led_group(self) -> QGroupBox:
-        box = QGroupBox("LED-Diagnose")
+        box = QGroupBox('LED diagnostics')
         layout = QVBoxLayout(box)
         row = QGridLayout()
         self.led_buttons: dict[str, QPushButton] = {}
@@ -305,7 +300,7 @@ class MainWindow(QMainWindow):
         br_row = QHBoxLayout()
         br_row.addWidget(self.br_slider, 1)
         br_row.addWidget(self.br_label)
-        sliders.addRow("Helligkeit:", br_row)
+        sliders.addRow('Brightness:', br_row)
         self.chase_slider = QSlider(Qt.Horizontal)
         self.chase_slider.setRange(20, 1000)
         self.chase_slider.setValue(120)
@@ -315,12 +310,9 @@ class MainWindow(QMainWindow):
         ch_row = QHBoxLayout()
         ch_row.addWidget(self.chase_slider, 1)
         ch_row.addWidget(self.chase_label)
-        sliders.addRow("Lauflicht-Schritt:", ch_row)
+        sliders.addRow('Chase step:', ch_row)
         layout.addLayout(sliders)
-        note = QLabel("Angezeigt wird der von der Firmware gesetzte <b>Sollzustand</b>. "
-                      "Die LEDs haben keine elektrische Rückmeldung – ob eine LED wirklich "
-                      "leuchtet, muss am Board angesehen werden. LEDs im Board anklicken "
-                      "schaltet einzelne LEDs.")
+        note = QLabel('The display shows the <b>commanded state</b> set by the firmware. LEDs have no electrical feedback; inspect the physical board to confirm that they light up. Click an LED on the board to toggle it.')
         note.setObjectName("hint")
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -329,40 +321,38 @@ class MainWindow(QMainWindow):
     def _build_sd_group(self) -> QGroupBox:
         box = QGroupBox("microSD")
         layout = QVBoxLayout(box)
-        self.sd_status = QLabel("Keine Daten")
+        self.sd_status = QLabel('No data')
         self.sd_status.setStyleSheet("font-size: 12pt; font-weight: 700;")
         layout.addWidget(self.sd_status)
         self.sd_detail = QLabel("")
         self.sd_detail.setObjectName("hint")
         self.sd_detail.setWordWrap(True)
         layout.addWidget(self.sd_detail)
-        self.sd_button = QPushButton("Lesetest starten (nur lesen)")
+        self.sd_button = QPushButton('Start read test (read-only)')
         self.sd_button.clicked.connect(self._sd_test)
         layout.addWidget(self.sd_button)
-        note = QLabel("Der Test hängt das Dateisystem nur ein und liest das Wurzelverzeichnis. "
-                      "Keine Formatierung, keine Schreibzugriffe. Während des Tests pausiert "
-                      "der Datenstrom (bei einer nicht antwortenden Karte bis zu 30 s).")
+        note = QLabel('The test mounts the filesystem and reads the root directory without writing or formatting. Streaming pauses during the test. Reads have a 5 s budget plus initialization; the host allows up to 20 s.')
         note.setObjectName("hint")
         note.setWordWrap(True)
         layout.addWidget(note)
         return box
 
     def _build_inputs_group(self) -> QGroupBox:
-        box = QGroupBox("Kippschalter und Steckererkennung")
+        box = QGroupBox('Toggle switches and plug detection')
         form = QFormLayout(box)
         self.in_labels = {}
-        for key, label in (("sw17", "SW17 (2 Pos.)"), ("sw18", "SW18 (3 Pos.)"),
-                           ("jl", "Audioeingang links"), ("jr", "Audioeingang rechts"),
-                           ("sd", "microSD-Erkennung")):
+        for key, label in (("sw17", 'SW17 (2 positions)'), ("sw18", 'SW18 (3 positions)'),
+                           ("jl", 'Left audio input'), ("jr", 'Right audio input'),
+                           ("sd", 'microSD detection')):
             self.in_labels[key] = _value_label()
             form.addRow(label + ":", self.in_labels[key])
         return box
 
     def _build_pot_group(self) -> QGroupBox:
-        box = QGroupBox("Potentiometer VR1–VR8")
+        box = QGroupBox('Potentiometers VR1–VR8')
         layout = QVBoxLayout(box)
         self.pot_table = QTableWidget(p.NUM_POTS, 5)
-        self.pot_table.setHorizontalHeaderLabels(["", "Wert", "ADC roh", "Min", "Max"])
+        self.pot_table.setHorizontalHeaderLabels(["", 'Value', 'Raw ADC', "Min", "Max"])
         self.pot_table.verticalHeader().setVisible(False)
         self.pot_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.pot_table.setSelectionMode(QAbstractItemView.NoSelection)
@@ -376,13 +366,13 @@ class MainWindow(QMainWindow):
             self.pot_table.setRowHeight(i, 22)
         self.pot_table.setFixedHeight(22 * p.NUM_POTS + 30)
         layout.addWidget(self.pot_table)
-        reset = QPushButton("Min/Max zurücksetzen")
+        reset = QPushButton('Reset min/max')
         reset.clicked.connect(self._reset_minmax)
         layout.addWidget(reset)
         return box
 
     def _build_counter_group(self) -> QGroupBox:
-        box = QGroupBox("Taster S1–S16 (Druckzähler)")
+        box = QGroupBox('Buttons S1–S16 (press counts)')
         grid = QGridLayout(box)
         self.counter_labels: list[QLabel] = []
         for i in range(p.NUM_BUTTONS):
@@ -394,12 +384,12 @@ class MainWindow(QMainWindow):
         return box
 
     def _build_extensions_group(self) -> QGroupBox:
-        box = QGroupBox("Vorbereitete Erweiterungen")
+        box = QGroupBox('Planned features')
         grid = QGridLayout(box)
         for row, (name, tip) in enumerate(EXTENSIONS):
             label = QLabel(name)
             label.setToolTip(tip)
-            badge = QLabel("Nicht implementiert")
+            badge = QLabel('Not implemented')
             badge.setObjectName("niBadge")
             badge.setToolTip(tip)
             grid.addWidget(label, row, 0)
@@ -409,9 +399,9 @@ class MainWindow(QMainWindow):
     # ---- session handling ----------------------------------------------------------------
     def _start_session(self, simulation: bool) -> None:
         if self.session is not None:
-            self.session.disconnect("Modus gewechselt")
+            self.session.disconnect('Mode changed')
         self.paused = False
-        self.connect_button.setText("Trennen")
+        self.connect_button.setText('Disconnect')
         self.sd_result = None
         self._reset_minmax()
         if simulation:
@@ -432,10 +422,10 @@ class MainWindow(QMainWindow):
         self.port_combo.setEnabled(not simulation)
         self.board.interactive = simulation
         self.board.simulated = simulation
-        self.setWindowTitle(f"Daisy Seed3 Hardware-Diagnose {__version__}"
+        self.setWindowTitle(f"Daisy Seed3 Hardware Diagnostics {__version__}"
                             + (" – SIMULATION" if simulation else ""))
-        self._log("Modus: " + ("Simulation (keine echte Hardware)" if simulation
-                               else "Hardware über USB CDC"))
+        self._log('Mode: ' + ('Simulation (no hardware)' if simulation
+                               else 'Hardware over USB CDC'))
         self._refresh_ports()
         self._update_status()
 
@@ -444,12 +434,12 @@ class MainWindow(QMainWindow):
             return
         if self.paused:
             self.paused = False
-            self.connect_button.setText("Trennen")
-            self._log("Automatische Verbindung wieder aktiv")
+            self.connect_button.setText('Disconnect')
+            self._log('Automatic connection resumed')
         else:
             self.session.disconnect()
             self.paused = True
-            self.connect_button.setText("Verbinden")
+            self.connect_button.setText('Connect')
         self._update_status()
 
     def _refresh_ports(self) -> None:
@@ -466,7 +456,7 @@ class MainWindow(QMainWindow):
             return
         self.port_combo.blockSignals(True)
         self.port_combo.clear()
-        self.port_combo.addItem("Automatisch (VID 0483 / PID 5740)", None)
+        self.port_combo.addItem('Automatic (VID 0483 / PID 5740)', None)
         for port in ports:
             mark = " ★" if port.is_daisy_candidate else ""
             self.port_combo.addItem(f"{port.device} – {port.description}{mark}", port.device)
@@ -496,8 +486,8 @@ class MainWindow(QMainWindow):
                 info: p.DeviceInfo = payload
                 self.sd_result = None
                 self._reset_minmax()
-                self._log(f"Verbunden mit {self.session.port}: {info.app} {info.firmware}, "
-                          f"Protokoll {info.protocol}, Bootloader {info.bootloader}"
+                self._log(f"Connected to {self.session.port}: {info.app} {info.firmware}, "
+                          f"Protocol {info.protocol}, Bootloader {info.bootloader}"
                           + (" (SIMULATION)" if info.simulated else ""))
             elif kind == "disconnected":
                 board_changed = True
@@ -530,20 +520,20 @@ class MainWindow(QMainWindow):
     def _sd_text(self) -> tuple[str, QColor]:
         st = self.session.board if self.session else None
         if st is None:
-            return "Keine Daten", theme.MUTED
+            return 'No data', theme.MUTED
         if not st.sd_card:
-            return "Keine Karte", theme.MUTED
+            return 'No card', theme.MUTED
         if self.session.sd_test_pending:
-            return "Lesetest läuft …", theme.TEXT
+            return 'Read test in progress …', theme.TEXT
         r = self.sd_result
         if r is None:
-            return "Karte erkannt", theme.TEXT
+            return 'Card detected', theme.TEXT
         if r.status == "MOUNTED":
             size = f"{r.size_mb / 1024:.1f} GB" if r.size_mb >= 1024 else f"{r.size_mb} MB"
-            return f"Dateisystem lesbar ({r.fs_type}, {size}, {r.entries} Einträge)", theme.OK
+            return f"Filesystem readable ({r.fs_type}, {size}, {r.entries} entries)", theme.OK
         if r.status == "NONE":
-            return "Keine Karte (Test)", theme.MUTED
-        return f"Fehler: {p.FRESULT_TEXT.get(r.fresult, f'FRESULT {r.fresult}')}", theme.ERROR
+            return 'No card (test)', theme.MUTED
+        return f"Error: {p.FRESULT_TEXT.get(r.fresult, f'FRESULT {r.fresult}')}", theme.ERROR
 
     # ---- periodic panel refresh ----------------------------------------------------------
     def _update_status(self) -> None:
@@ -551,13 +541,13 @@ class MainWindow(QMainWindow):
         if s is None:
             return
         state = s.state
-        text = "Pausiert" if self.paused else STATE_TEXT[state]
+        text = 'Paused' if self.paused else STATE_TEXT[state]
         if s.simulated and state == ConnState.CONNECTED:
             text += " (Simulation)"
         color = theme.FAINT if self.paused else STATE_COLORS[state]
         self.status_pill.setText(text)
         self.status_dot.setStyleSheet(f"background: {color.name()}; border-radius: 5px;")
-        self.status_detail.setText("Verbindung manuell getrennt" if self.paused
+        self.status_detail.setText('Disconnected manually' if self.paused
                                    else s.status_detail)
 
     def _refresh_panels(self) -> None:
@@ -576,11 +566,11 @@ class MainWindow(QMainWindow):
         self.info["lost"].setText(str(s.lost_frames))
         self.info["rtt"].setText(f"{s.rtt_ms:.0f} ms" if s.rtt_ms is not None and s.connected else "–")
         sysinfo = s.sys if s.connected else None
-        self.info["cb"].setText(f"{sysinfo.control_rate_hz} Hz (Soll 1000)" if sysinfo else "–")
+        self.info["cb"].setText(f"{sysinfo.control_rate_hz} Hz (target 1000)" if sysinfo else "–")
         self.info["uptime"].setText(f"{sysinfo.uptime_s} s" if sysinfo else "–")
         self.info["fwstats"].setText(
-            f"TX {sysinfo.tx_ok} (belegt {sysinfo.tx_busy}, verworfen {sysinfo.tx_drop}) / "
-            f"RX {sysinfo.rx_ok} (Fehler {sysinfo.rx_bad})" if sysinfo else "–")
+            f"TX {sysinfo.tx_ok} (busy {sysinfo.tx_busy}, dropped {sysinfo.tx_drop}) / "
+            f"RX {sysinfo.rx_ok} (errors {sysinfo.rx_bad})" if sysinfo else "–")
         self.info["reconnects"].setText(str(s.reconnects))
 
         st = s.board if s.connected else None
@@ -612,9 +602,9 @@ class MainWindow(QMainWindow):
         self.sd_status.setStyleSheet(f"font-size: 12pt; font-weight: 700; color: {color.name()};")
         self.sd_detail.setText(
             "" if st is None else
-            ("Karte über D7 (SDMMC_DETECT) erkannt. Lesetest möglich." if st.sd_card and
+            ('Card detected on D7 (SDMMC_DETECT). Read test available.' if st.sd_card and
              self.sd_result is None else
-             "Steckplatz meldet keine Karte." if not st.sd_card else ""))
+             'The slot reports no card.' if not st.sd_card else ""))
 
         def show(key: str, value: str, active: bool = False, ok: bool = False) -> None:
             self.in_labels[key].setText(value)
@@ -626,13 +616,13 @@ class MainWindow(QMainWindow):
             for key in self.in_labels:
                 show(key, "–")
         else:
-            show("sw17", {"U": "U (oben laut libDaisy)", "D": "D (unten laut libDaisy)"}[st.sw17],
+            show("sw17", {"U": 'U (up according to libDaisy)', "D": 'D (down according to libDaisy)'}[st.sw17],
                  st.sw17 == "U")
-            show("sw18", {"U": "U (oben)", "C": "C (Mitte / OFF)", "D": "D (unten)"}[st.sw18],
+            show("sw18", {"U": 'U (up)', "C": 'C (center / OFF)', "D": 'D (down)'}[st.sw18],
                  st.sw18 != "C")
-            show("jl", "Stecker erkannt" if st.jack_left else "frei", st.jack_left, ok=True)
-            show("jr", "Stecker erkannt" if st.jack_right else "frei", st.jack_right, ok=True)
-            show("sd", "Karte erkannt" if st.sd_card else "keine Karte", st.sd_card, ok=True)
+            show("jl", 'Plug detected' if st.jack_left else 'unplugged', st.jack_left, ok=True)
+            show("jr", 'Plug detected' if st.jack_right else 'unplugged', st.jack_right, ok=True)
+            show("sd", 'Card detected' if st.sd_card else 'no card', st.sd_card, ok=True)
 
         for i in range(p.NUM_POTS):
             lo, hi = self.board.pot_min[i], self.board.pot_max[i]
@@ -652,8 +642,8 @@ class MainWindow(QMainWindow):
                                     f"background: #3a3d41;" if st.buttons[i] else "")
 
         if self.cable is not None:
-            self.sim_plug.setText("USB-Kabel einstecken" if not self.cable.plugged
-                                  else "USB-Kabel ziehen")
+            self.sim_plug.setText('Plug in USB cable' if not self.cable.plugged
+                                  else 'Unplug USB cable')
             self._sync_sim_controls()
         if not s.connected and self.board.state is not None:
             self._apply_board()
@@ -669,7 +659,7 @@ class MainWindow(QMainWindow):
         ok = self.session.set_led(mode, mask=self.led_mask, brightness=self.br_slider.value(),
                                   step_ms=self.chase_slider.value())
         if ok:
-            self._log(f"LED-Modus angefordert: {mode}")
+            self._log(f"LED mode requested: {mode}")
 
     def _set_led_bit(self, index: int, on: bool) -> None:
         if on:
@@ -683,7 +673,7 @@ class MainWindow(QMainWindow):
 
     def _sd_test(self) -> None:
         if self.session and self.session.request_sd_test():
-            self._log("microSD-Lesetest angefordert")
+            self._log('microSD read test requested')
 
     def _reset_minmax(self) -> None:
         self.board.pot_min = [None] * p.NUM_POTS
@@ -728,21 +718,21 @@ class MainWindow(QMainWindow):
             return
         if self.cable.plugged:
             self.cable.unplug()
-            self._log("Simulation: USB-Kabel gezogen (Board ohne Strom)")
+            self._log('Simulation: USB cable unplugged (board powered off)')
         else:
             self.cable.plug()
             self.cable.device.responsive = not self.sim_freeze.isChecked()
-            self._log("Simulation: USB-Kabel eingesteckt (Firmware startet neu)")
+            self._log('Simulation: USB cable plugged in (firmware restarting)')
 
     def _sim_set_freeze(self, frozen: bool) -> None:
         if self.cable is not None:
             self.cable.device.responsive = not frozen
-            self._log("Simulation: Firmware " + ("reagiert nicht mehr" if frozen else "läuft wieder"))
+            self._log("Simulation: Firmware " + ('unresponsive' if frozen else 'responsive again'))
 
     def _sim_corrupt(self) -> None:
         if self.cable is not None:
             self.cable.device.corrupt_next_frame = True
-            self._log("Simulation: nächster Rahmen wird mit falscher CRC gesendet")
+            self._log('Simulation: the next frame will have an invalid CRC')
 
     def _sim_demo_toggled(self, on: bool) -> None:
         self._demo_start = self._clock()
@@ -768,5 +758,5 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         if self.session is not None:
-            self.session.disconnect("Anwendung beendet")
+            self.session.disconnect('Application closed')
         super().closeEvent(event)

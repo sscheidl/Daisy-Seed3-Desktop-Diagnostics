@@ -54,7 +54,7 @@ def test_starts_in_simulation_and_is_marked(sim):
     assert window.session.state == ConnState.CONNECTED
     assert window.sim_banner.isVisible() and "SIMULATION" in window.sim_banner.text()
     assert "SIMULATION" in window.windowTitle()
-    assert window.status_pill.text() == "Verbunden (Simulation)"
+    assert window.status_pill.text() == "Connected (Simulation)"
     assert window.info["fw"].text() == "DaisyDiagnostic 0.1.0-sim"
     assert window.info["proto"].text().startswith("DDP v1")
     assert window.board.simulated and window.board.interactive
@@ -127,23 +127,23 @@ def test_led_mode_buttons_and_board_led_click(sim):
 
 def test_sd_states(sim):
     window, step = sim
-    assert window.sd_status.text() == "Keine Karte"
+    assert window.sd_status.text() == 'No card'
     assert not window.sd_button.isEnabled()
     QTest.mouseClick(window.board, Qt.LeftButton, Qt.NoModifier,
                      widget_point(window, board_mod.SD_RECT.center()))
     step(0.05)
-    assert window.sd_status.text() == "Karte erkannt"
+    assert window.sd_status.text() == 'Card detected'
     assert window.sd_button.isEnabled()
     window.sd_button.click()
     step(0.05)
-    assert window.sd_status.text().startswith("Dateisystem lesbar (FAT32")
+    assert window.sd_status.text().startswith('Filesystem readable (FAT32')
     window.sim_sd_fs.setChecked(False)
     window.sd_button.click()
     step(0.05)
-    assert window.sd_status.text().startswith("Fehler: FR_NO_FILESYSTEM")
+    assert window.sd_status.text().startswith('Error: FR_NO_FILESYSTEM')
     window.sim_sd_card.setChecked(False)
     step(0.05)
-    assert window.sd_status.text() == "Keine Karte"
+    assert window.sd_status.text() == 'No card'
 
 
 def test_jack_detection_click(sim):
@@ -153,19 +153,19 @@ def test_jack_detection_click(sim):
                      widget_point(window, board_mod.QPointF(x, 40)))
     step(0.05)
     assert window.board.state.jack_left and not window.board.state.jack_right
-    assert window.in_labels["jl"].text() == "Stecker erkannt"
+    assert window.in_labels["jl"].text() == 'Plug detected'
 
 
 def test_usb_unplug_and_reconnect(sim):
     window, step = sim
     window.sim_plug.click()
     step(0.1)
-    assert window.status_pill.text() == "Getrennt"
+    assert window.status_pill.text() == 'Disconnected'
     assert window.board.state is None
     assert not window.led_buttons["ON"].isEnabled()
     window.sim_plug.click()
     step(1.5)
-    assert window.status_pill.text() == "Verbunden (Simulation)"
+    assert window.status_pill.text() == "Connected (Simulation)"
     assert window.info["reconnects"].text() == "1"
 
 
@@ -173,7 +173,7 @@ def test_frozen_firmware_shows_connection_error(sim):
     window, step = sim
     window.sim_freeze.setChecked(True)
     step(1.7)
-    assert window.status_pill.text() == "Verbindungsfehler"
+    assert window.status_pill.text() == 'Connection error'
     window.sim_freeze.setChecked(False)
     step(2.5)
     assert window.session.connected
@@ -183,17 +183,17 @@ def test_not_implemented_sections_are_labelled(sim):
     window, _ = sim
     badges = [w for w in window.findChildren(QLabel) if w.objectName() == "niBadge"]
     assert len(badges) == len(mw.EXTENSIONS) == 7
-    assert all(b.text() == "Nicht implementiert" for b in badges)
+    assert all(b.text() == 'Not implemented' for b in badges)
     names = {name for name, _ in mw.EXTENSIONS}
     assert names == {"Audio Input/Output", "Audio-Engine / DSP", "MIDI DIN", "USB-MIDI",
                      "USB-Host", "CV Input/Output", "Gate Input"}
     tip = window.board.tooltip_for(("midi", 0))
-    assert "Nicht implementiert" in tip
+    assert 'Not implemented' in tip
 
 
 def test_led_tooltip_states_no_optical_feedback(sim):
     window, _ = sim
-    assert "Keine elektrische Rückmeldung" in window.board.tooltip_for(("led", 0))
+    assert 'No electrical feedback' in window.board.tooltip_for(("led", 0))
 
 
 def test_hardware_mode_without_device(app, monkeypatch):
@@ -208,7 +208,7 @@ def test_hardware_mode_without_device(app, monkeypatch):
     window._refresh_panels()
     assert window.sim_banner.isHidden()
     assert window.session.state == ConnState.SEARCHING
-    assert window.status_pill.text() == "Getrennt"
-    assert "Kein Daisy" in window.status_detail.text()
+    assert window.status_pill.text() == 'Disconnected'
+    assert "No Daisy" in window.status_detail.text()
     assert window.board.state is None
     window.close()

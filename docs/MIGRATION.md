@@ -1,21 +1,24 @@
-# Herkunft des eigenstaendigen Repositories
+# Repository history and migration
 
-Die Diagnose-Suite wurde am 17.10.2026 aus dem privaten Repository
-[sscheidl/Daisy-Seed](https://github.com/sscheidl/Daisy-Seed), Commit
-`e2480bc33a5cb01f78c5ff5990c780698a516480`, ausgegliedert.
-Die auf `diagnostics/` beschraenkte Git-Historie ist erhalten; die Commit-IDs
-aendern sich durch das Verschieben dieses Ordners an die Repository-Wurzel.
-Sie enthaelt Erstimplementierung, Review-Korrekturen und GUI-Redesign.
-Historische PR-Nummern in den Berichten beziehen sich auf das Ursprungsrepo.
+The diagnostic suite was extracted on 17 October 2026 from the private
+[sscheidl/Daisy-Seed](https://github.com/sscheidl/Daisy-Seed) repository at commit
+`e2480bc33a5cb01f78c5ff5990c780698a516480`.
 
-Mit uebernommen wurden `scripts/install-toolchain.sh` und
-`scripts/check-firmware.py` sowie das festgelegte libDaisy-Submodul.
-DaisySP und der Toy-Piano-Code werden nicht benoetigt.
-Buildpfade, CI und Dokumentationslinks sind auf die neue Wurzel angepasst.
-Quellcode und Funktion von Firmware, Hostprotokoll und GUI bleiben erhalten.
+History restricted to `diagnostics/` was preserved. Commit IDs changed when that
+directory became the repository root. The history includes the initial
+implementation, review fixes, and GUI redesign. Historical PR numbers in the
+imported reports refer to the original repository.
 
-Die uebernommenen Testberichte dokumentieren Pruefungen vor der Ausgliederung.
-Der eigenstaendige Stand wird zusaetzlich durch seinen eigenen GitHub-Workflow
-gebaut und getestet. Nachtrag 17.10.2026: Der CI-Build von `8c0522d` wurde geflasht,
-Hardwaretest H1–H10 bestanden (H11 offen), Vorabversion
-[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/releases/tag/v0.1.0) angelegt.
+The extraction also copied `scripts/install-toolchain.sh` and
+`scripts/check-firmware.py` and added the pinned libDaisy submodule. Build paths,
+CI, and documentation links were adjusted for standalone operation. DaisySP and
+Toy Piano source are not dependencies. Application behavior was preserved.
+
+The repository was initially named `Daisy-Seed3-Diagnostics`, then renamed to
+**Daisy-Seed3-Desktop-Diagnostics**. Current links use the new name.
+
+At extraction time, hardware tests were pending. Results added later on
+17 October 2026 record H1–H10 as passed (H3 shortened), with H11 still open.
+See [TEST_REPORT.md](TEST_REPORT.md) for the distinction between protocol recordings,
+operator reports, and unmeasured cases. The English-language update translates
+the current GUI and documentation without adding hardware evidence or changing DDP.

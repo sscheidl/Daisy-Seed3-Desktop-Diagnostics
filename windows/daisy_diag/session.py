@@ -47,11 +47,11 @@ class Link(Protocol):
 
 
 class ConnState(Enum):
-    SEARCHING = "Getrennt – suche Gerät"
-    HANDSHAKE = "Verbinde …"
-    CONNECTED = "Verbunden"
-    INCOMPATIBLE = "Protokoll inkompatibel"
-    ERROR = "Verbindungsfehler"
+    SEARCHING = 'Disconnected – searching for a device'
+    HANDSHAKE = 'Connecting …'
+    CONNECTED = 'Connected'
+    INCOMPATIBLE = 'Incompatible protocol'
+    ERROR = 'Connection error'
 
 
 class SerialLink:
@@ -172,7 +172,7 @@ class DeviceSession:
         self._sd_deadline = self._clock() + SD_TEST_TIMEOUT_S
         return True
 
-    def disconnect(self, reason: str = "vom Benutzer getrennt") -> None:
+    def disconnect(self, reason: str = 'Disconnected by user') -> None:
         if self._link is not None:
             try:
                 if self.state == ConnState.CONNECTED:
@@ -191,7 +191,7 @@ class DeviceSession:
         try:
             data = self._link.read()
         except LinkError as exc:
-            self._drop_link(f"USB-Verbindung getrennt ({exc})", ConnState.SEARCHING)
+            self._drop_link(f"USB connection lost ({exc})", ConnState.SEARCHING)
             return
         if data:
             errors_before = self._parser.errors
@@ -206,7 +206,7 @@ class DeviceSession:
         if self.state == ConnState.HANDSHAKE:
             if now >= self._handshake_deadline:
                 self._failed_ports[self.port or ""] = now + FAILED_PORT_BACKOFF_S
-                self._drop_link(f"{self.port}: keine DDP-Antwort auf HELLO",
+                self._drop_link(f"{self.port}: no DDP reply to HELLO",
                                 ConnState.SEARCHING)
                 return
             if now >= self._next_hello:  # the first HELLO may arrive while firmware boots
@@ -215,9 +215,9 @@ class DeviceSession:
         if self.state == ConnState.CONNECTED:
             if self._sd_deadline is not None and now > self._sd_deadline:
                 self._sd_deadline = None
-                self._event("log", "microSD-Test: keine Antwort der Firmware")
+                self._event("log", 'microSD test: no response from firmware')
             if now - self._last_rx > RX_TIMEOUT_S and self._sd_deadline is None:
-                self._drop_link("Zeitüberschreitung: keine Daten seit "
+                self._drop_link("Timeout: no data for "
                                 f"{RX_TIMEOUT_S:.1f} s", ConnState.ERROR)
                 return
             if now - self._last_ping >= PING_INTERVAL_S:
@@ -240,7 +240,7 @@ class DeviceSession:
             return (current - previous - 1) & 0xFFFFFFFF
         # Repeated or decreasing number: not a loss. Cannot happen with this firmware
         # within one connection (a firmware restart drops the USB link), so report it.
-        self._event("log", f"Unerwartete Sequenznummer {current} nach {previous}")
+        self._event("log", f"Unexpected sequence number {current} after {previous}")
         return 0
 
     def _event(self, kind: str, payload: object = None) -> None:
@@ -258,7 +258,7 @@ class DeviceSession:
         try:
             ports = list(self._scan_ports())
         except Exception as exc:  # e.g. driver enumeration failure
-            self._set_state(ConnState.ERROR, f"Portsuche fehlgeschlagen: {exc}")
+            self._set_state(ConnState.ERROR, f"Port scan failed: {exc}")
             return []
         if self.port_override:
             return [port for port in ports if port.device == self.port_override]
@@ -273,15 +273,15 @@ class DeviceSession:
                 link = self._open_link(port.device)
             except LinkError as exc:
                 self._failed_ports[port.device] = now + FAILED_PORT_BACKOFF_S
-                self._set_state(ConnState.ERROR, f"{port.device} lässt sich nicht öffnen: {exc}")
-                self._event("log", f"{port.device}: Öffnen fehlgeschlagen ({exc})")
+                self._set_state(ConnState.ERROR, f"{port.device} cannot be opened: {exc}")
+                self._event("log", f"{port.device}: open failed ({exc})")
                 continue
             self._link = link
             self.port = port.device
             self._parser = p.FrameParser()
             self._handshake_deadline = now + HANDSHAKE_TIMEOUT_S
             self._last_rx = now
-            self._set_state(ConnState.HANDSHAKE, f"{port.device}: HELLO gesendet")
+            self._set_state(ConnState.HANDSHAKE, f"{port.device}: HELLO sent")
             self._next_hello = now + HELLO_RETRY_S
             if self._write(p.cmd_hello()):
                 return
@@ -292,8 +292,8 @@ class DeviceSession:
         if self.state == ConnState.ERROR and now < self._error_until:
             return
         self._set_state(ConnState.SEARCHING,
-                            f"Port {self.port_override} nicht gefunden" if self.port_override
-                            else "Kein Daisy (VID 0483 / PID 5740) gefunden")
+                            f"Port {self.port_override} not found" if self.port_override
+                            else 'No Daisy (VID 0483 / PID 5740) found')
 
     def _write(self, body: str) -> bool:
         if self._link is None:
@@ -302,7 +302,7 @@ class DeviceSession:
             self._link.write(p.build_frame(body))
             return True
         except LinkError as exc:
-            self._drop_link(f"Senden fehlgeschlagen ({exc})", ConnState.ERROR)
+            self._drop_link(f"Send failed ({exc})", ConnState.ERROR)
             return False
 
     def _drop_link(self, reason: str, state: ConnState) -> None:
@@ -333,7 +333,7 @@ class DeviceSession:
                 self.device = info
                 if info.protocol != p.PROTOCOL_VERSION:
                     self._failed_ports[self.port or ""] = now + FAILED_PORT_BACKOFF_S
-                    self._drop_link(f"Gerät meldet Protokoll {info.protocol}, erwartet "
+                    self._drop_link(f"Device reports protocol {info.protocol}, expected "
                                     f"{p.PROTOCOL_VERSION}", ConnState.INCOMPATIBLE)
                     return
                 if self.state == ConnState.CONNECTED:
@@ -364,15 +364,15 @@ class DeviceSession:
                 if sent is not None:
                     self.rtt_ms = (now - sent) * 1000.0
             elif msg.type == "ACK":
-                self._event("log", f"Bestätigt: {body}")
+                self._event("log", f"Acknowledged: {body}")
             elif msg.type == "ERR":
                 if self.state == ConnState.HANDSHAKE and msg.get("e") == "PROTO":
                     self._failed_ports[self.port or ""] = now + FAILED_PORT_BACKOFF_S
-                    self._drop_link("Firmware unterstützt Protokoll "
-                                    f"{p.PROTOCOL_VERSION} nicht", ConnState.INCOMPATIBLE)
+                    self._drop_link("Firmware does not support protocol "
+                                    f"{p.PROTOCOL_VERSION}", ConnState.INCOMPATIBLE)
                     return
-                self._event("log", f"Fehlermeldung der Firmware: {body}")
+                self._event("log", f"Firmware error: {body}")
             # unknown message types are ignored (forward compatibility)
         except p.ProtocolError as exc:
             self.content_errors += 1
-            self._event("log", f"Ungültige Nachricht verworfen: {exc}")
+            self._event("log", f"Discarded invalid message: {exc}")

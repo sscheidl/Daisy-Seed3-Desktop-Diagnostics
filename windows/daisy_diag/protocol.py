@@ -317,15 +317,15 @@ class SdInfo:
 
 FRESULT_TEXT = {
     0: "FR_OK",
-    1: "FR_DISK_ERR (Lesefehler)",
+    1: 'FR_DISK_ERR (read error)',
     2: "FR_INT_ERR",
-    3: "FR_NOT_READY (Karte antwortet nicht)",
+    3: 'FR_NOT_READY (card not responding)',
     4: "FR_NO_FILE",
     5: "FR_NO_PATH",
     9: "FR_INVALID_OBJECT",
     11: "FR_INVALID_DRIVE",
     12: "FR_NOT_ENABLED",
-    13: "FR_NO_FILESYSTEM (kein FAT/exFAT)",
+    13: 'FR_NO_FILESYSTEM (no FAT/exFAT)',
     15: "FR_TIMEOUT",
 }
 

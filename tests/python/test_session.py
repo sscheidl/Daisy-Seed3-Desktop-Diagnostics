@@ -190,7 +190,7 @@ def test_hung_firmware_times_out_then_recovers(connected):
     assert s.state == ConnState.CONNECTED
     run(clock, s, 0.7)
     assert s.state == ConnState.ERROR
-    assert "Zeitüberschreitung" in s.status_detail
+    assert 'Timeout' in s.status_detail
     cable.device.responsive = True
     run(clock, s, 2.0)
     assert s.state == ConnState.CONNECTED
@@ -288,13 +288,13 @@ def test_port_override_and_open_failure():
     clock = FakeClock()
 
     def fail(name):
-        raise LinkError("Zugriff verweigert")
+        raise LinkError('Access denied')
 
     s = DeviceSession(lambda: [PortInfo("COM7", None, None, "USB Serial")], fail, clock,
                       port_override="COM7")
     run(clock, s, 0.1)
     assert s.state == ConnState.ERROR
-    assert "Zugriff verweigert" in s.status_detail
+    assert 'Access denied' in s.status_detail
 
 
 def test_user_disconnect_sends_bye(connected):
@@ -411,7 +411,7 @@ def test_sequence_gap_rules():
     assert s._sequence_gap(0xFFFFFFFE, 1) == 2  # wrap-around
     assert s._sequence_gap(10, 10) == 0
     assert s._sequence_gap(10, 3) == 0
-    assert any("Unerwartete Sequenznummer" in str(v) for k, v in s.drain_events())
+    assert any("Unexpected sequence number" in str(v) for k, v in s.drain_events())
 
 
 class FailingLink:
