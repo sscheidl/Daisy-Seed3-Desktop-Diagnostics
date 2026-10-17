@@ -27,6 +27,12 @@ Original Python environment: Python 3.12.10, PySide6 6.8.3, pytest 9.0.3.
 GUI and EXE startup tests use `QT_QPA_PLATFORM=offscreen`. Windows font lookup uses
 `QT_QPA_FONTDIR=C:\Windows\Fonts`. CI runs g++ ASan/UBSan as well as ARM and Windows builds.
 
+The English UI revision was checked separately on 17 October 2026: all 167 Python
+tests passed, the source simulation started successfully, and the rebuilt EXE
+passed `--sim --selftest 5` (exit 0). Startup with an explicitly nonexistent port
+and `--selftest 3` exited with the expected code 1. The simulation screenshot was
+regenerated and inspected. No hardware was flashed or exercised for this revision.
+
 ### Software coverage
 
 | Area | Coverage | Layer |
