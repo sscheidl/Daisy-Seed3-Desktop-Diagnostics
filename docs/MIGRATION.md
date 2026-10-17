@@ -18,4 +18,4 @@ Die uebernommenen Testberichte dokumentieren Pruefungen vor der Ausgliederung.
 Der eigenstaendige Stand wird zusaetzlich durch seinen eigenen GitHub-Workflow
 gebaut und getestet. Nachtrag 17.10.2026: Der CI-Build von `8c0522d` wurde geflasht,
 Hardwaretest H1–H10 bestanden (H11 offen), Vorabversion
-[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/releases/tag/v0.1.0) angelegt.
+[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/releases/tag/v0.1.0) angelegt.

@@ -54,7 +54,7 @@ GUI- und EXE-Tests liefen mit `QT_QPA_PLATFORM=offscreen` (ohne sichtbares Fenst
 Geflasht wurde `DaisyDiagnostic.bin` mit SHA-256
 `5246380984e199368a30c545b45d1263493903ad02a864bde2f04f17c0d15dc0`. Diese Datei ist
 bit-identisch mit dem CI-Build von `8c0522d` und mit Release
-[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/releases/tag/v0.1.0).
+[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/releases/tag/v0.1.0).
 Getestet wurde über J7 an einem Windows-11-PC mit Bootloader „Daisy Bootloader“
 (`0483:DF11`, von libDaisy als `v6_1` = v6.1 oder neuer gemeldet).
 
