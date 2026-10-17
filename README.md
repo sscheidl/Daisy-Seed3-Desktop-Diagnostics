@@ -6,8 +6,10 @@ Windows-Anwendung (Python/PySide6), die über USB (CDC, Buchse **J7**) bidirekti
 kommunizieren.
 
 > **Prüfstatus:** Firmware ARM-cross-kompiliert, alle Software- und Simulationstests
-> bestanden. **An echter Hardware wurde noch nichts getestet** – es war kein Gerät
-> angeschlossen. Siehe [Testbericht](docs/TEST_REPORT.md).
+> bestanden. **Hardwaretest am Seed3 Desktop Dev Kit (17.10.2026): H1–H10 bestanden**,
+> teils protokolliert, teils als Bedienertest. Offen ist nur H11 (EXE auf einem zweiten
+> PC). Siehe [Testbericht](docs/TEST_REPORT.md) und Vorabversion
+> [v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/releases/tag/v0.1.0).
 
 ![Oberfläche im Simulationsmodus](docs/images/gui-simulation.png)
 

@@ -16,5 +16,6 @@ Quellcode und Funktion von Firmware, Hostprotokoll und GUI bleiben erhalten.
 
 Die uebernommenen Testberichte dokumentieren Pruefungen vor der Ausgliederung.
 Der eigenstaendige Stand wird zusaetzlich durch seinen eigenen GitHub-Workflow
-gebaut und getestet. Hardwaretests H1-H11 bleiben offen; es wurde weder geflasht
-noch ein GitHub-Release angelegt.
+gebaut und getestet. Nachtrag 17.10.2026: Der CI-Build von `8c0522d` wurde geflasht,
+Hardwaretest H1–H10 bestanden (H11 offen), Vorabversion
+[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/releases/tag/v0.1.0) angelegt.

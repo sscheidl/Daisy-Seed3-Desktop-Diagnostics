@@ -1,6 +1,7 @@
 # Testbericht
 
 > Historischer Bericht aus dem Ursprungsrepository; Herkunft und aktuelle Buildstruktur: [MIGRATION.md](MIGRATION.md).
+> **Ergänzt am 17.10.2026:** Hardwaretest H1–H10 bestanden, H11 offen – siehe Abschnitt B.
 
 Stand: 17.10.2026, Branch `fix/codex-review-findings` (Korrekturen zum Codex-Review,
 siehe [HANDOVER.md, Abschnitt 9](HANDOVER.md#9-codex-review-von-6f709ec-befunde-und-korrekturen)),
@@ -48,20 +49,39 @@ GUI- und EXE-Tests liefen mit `QT_QPA_PLATFORM=offscreen` (ohne sichtbares Fenst
 * Kein Test auf echter USB-Hardware, kein Test des echten Windows-CDC-Treibers mit
   diesem Gerät, kein Test von Timing, ADC-Rauschen oder Entprellung am Board.
 
-## B. Ausstehende Hardwaretests (nicht durchgeführt)
+## B. Hardwaretest am Seed3 Desktop Dev Kit (17.10.2026)
 
-| # | Test | Status |
-| --- | --- | --- |
-| H1 | Flashen über J7 mit Bootloader v6.x External, Firmwarestart, USR-LED blinkt langsam | **ausstehend** |
-| H2 | Windows erkennt COM-Port (VID 0483/PID 5740), automatische Verbindung, `HELLO`-Daten, Bootloaderanzeige | **ausstehend** |
-| H3 | Steuer-Update-Rate ≈ 1000 Hz, Zustandsrate ≈ 50 Hz, keine Rahmenfehler über 10 min | **ausstehend** |
-| H4 | S1–S16 einzeln, Zuordnung S-Nummer ↔ Position, kein Prellen/Doppelzählen | **ausstehend** |
-| H5 | VR1–VR8 Zuordnung, Endwerte (0 %/100 % erreichbar?), Rauschen | **ausstehend** |
-| H6 | SW17/SW18: Zuordnung U/C/D zur tatsächlichen Hebelrichtung | **ausstehend** |
-| H7 | D1–D16 in allen LED-Modi **optisch** prüfen, Helligkeit | **ausstehend** |
-| H8 | microSD: Kartenerkennung (Polarität), Lesetest FAT32/exFAT, Karte ohne Dateisystem, Karte während Test | **ausstehend** |
-| H9 | Steckererkennung Audioeingang links/rechts (Polarität, Zuordnung L/R) | **ausstehend** |
-| H10 | USB-Kabel ziehen/stecken, Anwendung schließen/öffnen, Wiederverbindung | **ausstehend** |
-| H11 | EXE auf einem zweiten Windows-11-PC ohne Python | **ausstehend** |
+Geflasht wurde `DaisyDiagnostic.bin` mit SHA-256
+`5246380984e199368a30c545b45d1263493903ad02a864bde2f04f17c0d15dc0`. Diese Datei ist
+bit-identisch mit dem CI-Build von `8c0522d` und mit Release
+[v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/releases/tag/v0.1.0).
+Getestet wurde über J7 an einem Windows-11-PC mit Bootloader „Daisy Bootloader“
+(`0483:DF11`, von libDaisy als `v6_1` = v6.1 oder neuer gemeldet).
+
+„Protokolliert“ heißt: Messwerte wurden über das Diagnoseprotokoll mitgeschrieben.
+„Bedienertest“ heißt: am Board und in der Windows-Anwendung durchgeführt und als
+erfolgreich gemeldet, ohne Einzelwerte.
+
+| # | Test | Ergebnis | Nachweis |
+| --- | --- | --- | --- |
+| H1 | Flashen über J7, Firmwarestart, USR-LED | **bestanden** | protokolliert: Bootloader `0483:DF11`, danach Firmware als `0483:5740` (COM14), kein Neustart-Kreislauf |
+| H2 | COM-Port, automatische Verbindung, `HELLO`, Bootloaderanzeige | **bestanden** | protokolliert: fw 0.1.0, Protokoll 1, BOOT_SRAM, `bl=v6_1`, libDaisy f715e48 |
+| H3 | Steuer-Update-Rate, Zustandsrate, Rahmenfehler | **bestanden, verkürzt** | protokolliert über ca. 3 min statt 10 min: 1000 Hz, 50 Hz, 0 Rahmen-/Inhaltsfehler, 0 verlorene Rahmen, 0 Empfangsfehler |
+| H4 | S1–S16 Zuordnung, Prellen, Druckzähler | **bestanden** | Bedienertest |
+| H5 | VR1–VR8 Zuordnung und Endwerte | **bestanden** | VR1 protokolliert: 0,0–100,0 % (roh 1–65534) in beide Richtungen, nur Kanal VR1 reagiert; VR2–VR8 Bedienertest |
+| H6 | SW17/SW18 Anzeige gegenüber realer Hebelstellung | **bestanden** | Bedienertest |
+| H7 | D1–D16 in allen LED-Modi optisch, Helligkeit | **bestanden** | Bedienertest |
+| H8 | microSD: Erkennung, Lesetest | **bestanden** | Bedienertest |
+| H9 | Klinkenerkennung Audioeingang links/rechts | **bestanden** | Bedienertest |
+| H10 | USB-Kabel ziehen/stecken, Anwendung schließen/öffnen | **bestanden** | Bedienertest; Port schließen/öffnen zusätzlich protokolliert (sofortige Wiederverbindung) |
+| H11 | EXE auf einem zweiten Windows-11-PC ohne Python | **offen** | – |
+
+Beobachtung: Nach Schließen des Ports ohne `BYE` meldete die Firmware 117 verworfene
+Rahmen (`txdrop`). Das ist das dokumentierte Verhalten (bis zu 3 s Weitersenden,
+siehe HANDOVER.md, Risiko 7), kein Fehler.
+
+Noch nicht gemessen: Poti-Rauschen in Ruhe, Langzeitstabilität über 10 min,
+exFAT und Karte ohne Dateisystem sowie Karte während eines laufenden Tests
+(H8-Teilfälle, soweit nicht im Bedienertest enthalten).
 
 Ablauf: [HANDOVER.md, Abschnitt 8](HANDOVER.md#8-anleitung-für-den-ersten-hardwaretest).

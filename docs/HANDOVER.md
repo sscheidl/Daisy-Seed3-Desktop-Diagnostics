@@ -9,7 +9,7 @@ Protokoll DDP v1.
 
 **Kurzfassung:** Firmware und Windows-Anwendung sind implementiert, die Firmware ist
 ARM-cross-kompiliert, alle automatisierten Software- und Simulationstests bestehen.
-**Es wurde keine echte Hardware getestet.** Alle Aussagen zum Verhalten am Board sind
+**Nachtrag 17.10.2026: Hardwaretest H1–H10 bestanden, H11 offen.** Alle Aussagen zum Verhalten am Board sind
 aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
 
 ## 1. Implementierte Funktionen
@@ -68,13 +68,15 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
 | Gegenprobe SD-Symbolprüfung (eingeschleuster `f_open(…, FA_WRITE)`) | wird erkannt |
 | GUI- und EXE-Start im Simulationsmodus | bestanden |
 | GitHub Actions (g++, ASan/UBSan, Linux-Cross-Compile, Windows-Tests, EXE) | Workflow `diagnostics.yml` angelegt; Ergebnis siehe Pull Request |
-| **Alle Hardwaretests H1–H11** | **ausstehend** |
+| **Hardwaretests (17.10.2026)** | **H1–H10 bestanden**, H11 offen; Details in TEST_REPORT.md, Abschnitt B |
 
 ## 4. Bekannte Probleme und Risiken
 
-1. **Keine Hardwarevalidierung.** Insbesondere ungeprüft: Polarität der SD- und
-   Klinkenerkennung (aus libDaisy übernommen), Zuordnung U/C/D zur realen Hebelrichtung
-   von SW17/SW18, Poti-Endwerte, tatsächliche USB-Enumeration an J7 mit dieser Firmware.
+1. **Hardwarevalidierung teilweise nur als Bedienertest.** Am 17.10.2026 bestanden
+   H1–H10 (siehe TEST_REPORT.md). Protokolliert wurden Flashen, USB-Enumeration an J7,
+   Handshake, Raten/Fehlerfreiheit über ca. 3 min und VR1. Die übrigen Bedienelemente,
+   SD- und Klinkenerkennung sowie USB-Abziehen wurden als Bedienertest bestätigt.
+   Langzeitstabilität (10 min), Poti-Rauschen und SD-Sonderfälle sind nicht gemessen.
 2. **libDaisy `CDC_Transmit_HS()` ohne NULL-Prüfung.** Umgangen durch Prüfung von
    `hUsbDeviceHS.dev_state`/`pClassData` und Start des Transfers bei per `BASEPRI`
    maskiertem USB-Interrupt (globales Symbol aus libDaisy `usb.cpp`). Nur per Review
