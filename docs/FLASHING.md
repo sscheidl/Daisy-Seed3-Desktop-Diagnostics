@@ -1,6 +1,6 @@
 # Flashen über USB
 
-Hardwaretests H1-H11 bleiben ausstehend. Diese Anleitung beschreibt ausschliesslich manuelle Schritte am Kit.
+Am 17.10.2026 wurde dieser Ablauf mit `DaisyDiagnostic.bin` (v0.1.0) erfolgreich am Kit durchgeführt; Hardwaretest H1–H10 bestanden (siehe [TEST_REPORT.md](TEST_REPORT.md)). Diese Anleitung beschreibt ausschliesslich manuelle Schritte am Kit.
 
 ## Zwei USB-C-Anschlüsse
 

@@ -6,8 +6,10 @@ Windows-Anwendung (Python/PySide6), die über USB (CDC, Buchse **J7**) bidirekti
 kommunizieren.
 
 > **Prüfstatus:** Firmware ARM-cross-kompiliert, alle Software- und Simulationstests
-> bestanden. **An echter Hardware wurde noch nichts getestet** – es war kein Gerät
-> angeschlossen. Siehe [Testbericht](docs/TEST_REPORT.md).
+> bestanden. **Hardwaretest am Seed3 Desktop Dev Kit (17.10.2026): H1–H10 bestanden**,
+> teils protokolliert, teils als Bedienertest. Offen ist nur H11 (EXE auf einem zweiten
+> PC). Siehe [Testbericht](docs/TEST_REPORT.md) und Vorabversion
+> [v0.1.0](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/releases/tag/v0.1.0).
 
 ![Oberfläche im Simulationsmodus](docs/images/gui-simulation.png)
 
@@ -20,7 +22,7 @@ kommunizieren.
 | 8 Potis VR1–VR8 | normiert 0…1 und ADC-Rohwert | Drehregler, Prozent, Min/Max |
 | SW17 (2 Pos.), SW18 (3 Pos.) | libDaisy `Switch` / `Switch3` (+ Entprellung) | Hebelstellung |
 | microSD | Kartenerkennung, optional **nur lesender** Dateisystemtest | keine Karte / erkannt / lesbar / Fehler |
-| Audioeingänge L/R | Steckererkennung | Anzeige an den Buchsen |
+| Audioeingänge L/R | Steckererkennung (nur Eingänge; Audio Out hat keine) | Anzeige an den beiden Eingangsbuchsen |
 | USB | DDP v1: Handshake, 10–100 Hz Zustand, Befehle, CRC, Keepalive | Autoerkennung, Zeitüberwachung, Wiederverbindung |
 | Simulation | – | Gerätesimulator mit demselben Protokoll |
 
@@ -41,7 +43,7 @@ Audio, DSP, MIDI DIN, USB-MIDI, USB-Host, CV und Gate sind in der GUI als
 
 ## Binaerdateien herunterladen
 
-Der [Workflow Hardware diagnostics](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/actions/workflows/diagnostics.yml)
+Der [Workflow Hardware diagnostics](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/workflows/diagnostics.yml)
 baut Firmware (`DaisyDiagnostic.bin`, `.elf`) und Windows-Anwendung (`DaisyDiagnostic.exe`).
 Im letzten erfolgreichen Lauf stehen beide ZIP-Dateien unter **Artifacts**, jeweils
 mit `SHA256SUMS`. Das private Repository erfordert eine GitHub-Anmeldung mit Zugriff.
@@ -51,8 +53,8 @@ automatisch angelegt.
 ## Schnellstart
 
 ```bash
-git clone https://github.com/sscheidl/Daisy-Seed3-Diagnostics.git
-cd Daisy-Seed3-Diagnostics
+git clone https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics.git
+cd Daisy-Seed3-Desktop-Diagnostics
 
 # Firmware (Git Bash unter Windows)
 bash scripts/install-toolchain-windows.sh

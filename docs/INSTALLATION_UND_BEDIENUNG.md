@@ -110,7 +110,7 @@ Ergebnis: Dateisystemtyp, Größe, Anzahl Einträge oder FatFs-Fehlercode.
 
 ### Weitere Panels
 
-Kippschalter und Steckererkennung als Text, Poti-Tabelle (Prozent, ADC-Rohwert,
+Kippschalter und Steckererkennung der Audioeingänge als Text, Poti-Tabelle (Prozent, ADC-Rohwert,
 Min/Max, zurücksetzbar), Druckzähler S1–S16, Liste der vorbereiteten, **nicht
 implementierten** Erweiterungen und das Ereignisprotokoll.
 
