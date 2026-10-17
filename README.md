@@ -21,8 +21,8 @@ kommunizieren.
 | SW17 (2 Pos.), SW18 (3 Pos.) | libDaisy `Switch` / `Switch3` (+ Entprellung) | Hebelstellung |
 | microSD | Kartenerkennung, optional **nur lesender** Dateisystemtest | keine Karte / erkannt / lesbar / Fehler |
 | Audioeingänge L/R | Steckererkennung | Anzeige an den Buchsen |
-| USB | DDP v1: Handshake, 20–100 Hz Zustand, Befehle, CRC, Keepalive | Autoerkennung, Zeitüberwachung, Wiederverbindung |
-| Simulation | – | vollständiger Gerätesimulator mit demselben Protokoll |
+| USB | DDP v1: Handshake, 10–100 Hz Zustand, Befehle, CRC, Keepalive | Autoerkennung, Zeitüberwachung, Wiederverbindung |
+| Simulation | – | Gerätesimulator mit demselben Protokoll |
 
 Audio, DSP, MIDI DIN, USB-MIDI, USB-Host, CV und Gate sind in der GUI als
 **„Nicht implementiert“** vorgesehen und gekennzeichnet.
@@ -30,7 +30,7 @@ Audio, DSP, MIDI DIN, USB-MIDI, USB-Host, CV und Gate sind in der GUI als
 ## Verzeichnisse
 
 ```
-diagnostics/
+
 ├── firmware/   C++-Firmware (libDaisy, BOOT_SRAM) – Makefile, src/
 ├── windows/    PySide6-Anwendung (daisy_diag/), EXE-Build, requirements.txt
 ├── protocol/   Protokollspezifikation, C++-Implementierung, gemeinsame Prüfvektoren
@@ -39,23 +39,36 @@ diagnostics/
 └── docs/       Installation/Bedienung, Firmware, Testbericht, Übergabebericht
 ```
 
+## Binaerdateien herunterladen
+
+Der [Workflow Hardware diagnostics](https://github.com/sscheidl/Daisy-Seed3-Diagnostics/actions/workflows/diagnostics.yml)
+baut Firmware (`DaisyDiagnostic.bin`, `.elf`) und Windows-Anwendung (`DaisyDiagnostic.exe`).
+Im letzten erfolgreichen Lauf stehen beide ZIP-Dateien unter **Artifacts**, jeweils
+mit `SHA256SUMS`. Das private Repository erfordert eine GitHub-Anmeldung mit Zugriff.
+Actions-Artefakte haben eine begrenzte Aufbewahrungsdauer. Releases werden nicht
+automatisch angelegt.
+
 ## Schnellstart
 
 ```bash
+git clone https://github.com/sscheidl/Daisy-Seed3-Diagnostics.git
+cd Daisy-Seed3-Diagnostics
+
 # Firmware (Git Bash unter Windows)
-bash diagnostics/scripts/install-toolchain-windows.sh
+bash scripts/install-toolchain-windows.sh
 git submodule update --init libDaisy && git -C libDaisy submodule update --init --recursive
-bash diagnostics/scripts/build-firmware.sh      # -> diagnostics/firmware/build/DaisyDiagnostic.bin
+bash scripts/build-firmware.sh      # -> firmware/build/DaisyDiagnostic.bin
 
 # Windows-Anwendung
-cd diagnostics/windows
+cd windows
 python -m pip install -r requirements.txt
 python -m daisy_diag --sim                      # ohne Hardware
 build_exe.cmd                                   # -> dist/DaisyDiagnostic.exe
+cd ../                                          # back to repository root
 
 # Tests
-python -m pytest diagnostics/tests/python
-diagnostics/scripts/run-host-tests-msvc.cmd     # oder: make -C diagnostics/firmware test
+python -m pytest tests/python
+scripts/run-host-tests-msvc.cmd     # oder: make -C firmware test
 ```
 
 Flashen und Bedienung: [Installation und Bedienung](docs/INSTALLATION_UND_BEDIENUNG.md).
@@ -68,4 +81,4 @@ Flashen und Bedienung: [Installation und Bedienung](docs/INSTALLATION_UND_BEDIEN
 * [Testbericht](docs/TEST_REPORT.md)
 * [Technischer Übergabebericht (für die unabhängige Prüfung)](docs/HANDOVER.md)
 
-Die Toy-Piano-Firmware im Repository-Wurzelverzeichnis ist unverändert.
+Das [Toy Piano](https://github.com/sscheidl/Daisy-Seed) wird separat entwickelt. Dieses Repository braucht weder dessen Quellcode noch DaisySP. Siehe [Migration](docs/MIGRATION.md).

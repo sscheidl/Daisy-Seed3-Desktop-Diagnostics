@@ -1,6 +1,6 @@
 """Daisy Diagnostic Protocol (DDP) v1 - host implementation.
 
-Specification: diagnostics/protocol/PROTOCOL.md. Mirrors diagnostics/protocol/ddp.cpp.
+Specification: protocol/PROTOCOL.md. Mirrors protocol/ddp.cpp.
 """
 from __future__ import annotations
 

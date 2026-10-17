@@ -1,5 +1,7 @@
 # Technischer Übergabebericht – Daisy Seed3 Hardware Diagnostic Suite
 
+> Historischer Bericht aus dem Ursprungsrepository; Herkunft und aktuelle Buildstruktur: [MIGRATION.md](MIGRATION.md).
+
 Für die unabhängige Prüfung (z. B. durch OpenAI Codex). Stand 17.10.2026,
 zuletzt aktualisiert mit den Korrekturen zum Codex-Review von `6f709ec`
 (Abschnitt 9), Branch `fix/codex-review-findings`, Version Firmware 0.1.0 / Anwendung 0.1.0 /
@@ -12,7 +14,7 @@ aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
 
 ## 1. Implementierte Funktionen
 
-### Firmware (`diagnostics/firmware`, C++17, libDaisy `f715e48`, BOOT_SRAM)
+### Firmware (`firmware`, C++17, libDaisy `f715e48`, BOOT_SRAM)
 
 * Liest alle Bedienelemente über die offizielle Klasse `daisy::desktop_devkit::Hardware`
   (keine eigene Pinzuordnung): 16 Taster (Schieberegister, `DigitalControl`-Entprellung,
@@ -31,7 +33,7 @@ aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
   Host-Überwachung (Datenstrom stoppt 3 s nach dem letzten Host-Rahmen).
 * USR-LED des Seed3: langsam = wartet auf Host, schnell = verbunden.
 
-### Windows-Anwendung (`diagnostics/windows`, Python 3.12, PySide6 6.8.3, pyserial 3.5)
+### Windows-Anwendung (`windows`, Python 3.12, PySide6 6.8.3, pyserial 3.5)
 
 * Grafische Board-Ansicht nach Foto/Pinout: Taster, LEDs, Potis (Prozent, Min/Max),
   Kippschalter, microSD, Audioeingänge, J7, nicht implementierte Bereiche markiert.
@@ -87,7 +89,7 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
 5. **Bootloaderversion:** libDaisy meldet nur `v6_1` (= v6.1 oder neuer); v6.4 ist
    nicht eindeutig nachweisbar.
 6. **LED-Treiber** (libDaisy): möglicher dauerhafter Wartezustand nach fehlgeschlagenem
-   DMA-Start, wie in `docs/HARDWARE.md` für das Toy Piano beschrieben.
+   DMA-Start, muss weiterhin am Board geprüft werden.
 7. **Host schließt ohne `BYE`:** Firmware sendet noch bis zu 3 s in einen nicht
    abgeholten Endpunkt; verworfene Rahmen werden in `SYS txdrop` gezählt. Ein neues
    `HELLO` verwirft wartende Altdaten; bereits übergebene Pakete liest der Host beim
@@ -116,7 +118,7 @@ Details: [TEST_REPORT.md](TEST_REPORT.md).
 
 ## 6. Kompilierte Artefakte
 
-Lokal unter `diagnostics/release/` (nicht in Git), in CI als Workflow-Artefakte:
+Lokal unter `release/` (nicht in Git), in CI als Workflow-Artefakte:
 
 | Datei | Größe | SHA-256 |
 | --- | --- | --- |
@@ -132,7 +134,7 @@ sind nicht bit-reproduzierbar.
 
 Empfohlene Reihenfolge und Schwerpunkte:
 
-1. `diagnostics/protocol/PROTOCOL.md` gegen `ddp.cpp` und `windows/daisy_diag/protocol.py`.
+1. `protocol/PROTOCOL.md` gegen `ddp.cpp` und `windows/daisy_diag/protocol.py`.
 2. `firmware/src/main.cpp`: Nebenläufigkeit (Audiocallback ↔ Hauptschleife),
    `BASEPRI`-geschützter CDC-Sender, schreibgeschützter SD-Treiber (DMA, Cache-Pflege,
    Zeitgrenzen, Neuinitialisierung), SDRAM-Platzierung, NVIC-Prioritäten.
@@ -143,15 +145,15 @@ Empfohlene Reihenfolge und Schwerpunkte:
 5. `windows/daisy_diag/simulator.py` gegen das Firmwareverhalten (Modelltreue).
 6. Prüfbefehle:
    ```bash
-   bash diagnostics/scripts/build-firmware.sh
-   make -C diagnostics/firmware test test-sanitize      # Linux/g++
-   python -m pytest diagnostics/tests/python -v
+   bash scripts/build-firmware.sh
+   make -C firmware test test-sanitize      # Linux/g++
+   python -m pytest tests/python -v
    ```
 
 ## 8. Anleitung für den ersten Hardwaretest
 
 Vorbereitung: Bootloader v6.x External vorhanden (sonst
-[docs/FLASHING.md](../../docs/FLASHING.md)), Audioeingänge frei, keine SD-Karte.
+[FLASHING.md](FLASHING.md)), Audioeingänge frei, keine SD-Karte.
 
 1. **Flashen (H1):** J7 an den PC, RESET, BOOT innerhalb 2 s, `DaisyDiagnostic.bin`
    im Web Programmer programmieren. Erwartung: USR-LED blinkt danach langsam (1 Hz).

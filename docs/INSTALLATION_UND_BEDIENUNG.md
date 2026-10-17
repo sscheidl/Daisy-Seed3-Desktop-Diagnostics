@@ -19,7 +19,7 @@ an `usbser.sys` („Serielles USB-Gerät (COMx)“).
 
 Die Diagnosefirmware installiert **keinen** Bootloader. Ist bereits ein externer
 v6.x-Bootloader vorhanden (z. B. für das Toy Piano), diesen Schritt überspringen.
-Sonst wie in [docs/FLASHING.md](../../docs/FLASHING.md), Abschnitt „Einmalig“:
+Sonst wie in [FLASHING.md](FLASHING.md), Abschnitt „Einmalig“:
 USB-C am **Seed3-Modul**, BOOT halten + RESET, im
 [Daisy Web Programmer](https://flash.daisy.audio/) „v6.x (external)“ installieren.
 
@@ -48,7 +48,7 @@ SmartScreen kann beim ersten Start warnen („Weitere Informationen“ → „Tr
 **Aus dem Quellcode** (Python 3.12):
 
 ```bash
-cd diagnostics/windows
+cd windows
 python -m pip install -r requirements.txt
 python -m daisy_diag            # Hardware
 python -m daisy_diag --sim      # Simulation ohne Gerät

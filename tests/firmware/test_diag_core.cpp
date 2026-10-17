@@ -1,5 +1,5 @@
 // Host tests for the firmware's protocol and diagnostic logic (no libDaisy, no hardware).
-// Usage: test_diag_core <path to diagnostics/protocol/vectors.txt>
+// Usage: test_diag_core <path to protocol/vectors.txt>
 #include "ddp.h"
 #include "diag_core.h"
 #include <cmath>

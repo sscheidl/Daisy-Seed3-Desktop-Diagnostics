@@ -31,13 +31,13 @@ Commits gesetzt, nicht aktualisiert. Kein `--remote`.
 
 ```bash
 # Windows (Git Bash), einmalig:
-bash diagnostics/scripts/install-toolchain-windows.sh
+bash scripts/install-toolchain-windows.sh
 git submodule update --init libDaisy
 git -C libDaisy submodule update --init --recursive --jobs 4
 
 # Firmware bauen und prüfen:
-bash diagnostics/scripts/build-firmware.sh
-# -> diagnostics/firmware/build/DaisyDiagnostic.bin
+bash scripts/build-firmware.sh
+# -> firmware/build/DaisyDiagnostic.bin
 ```
 
 `make check` (vom Skript aufgerufen) prüft mit dem bestehenden
@@ -55,22 +55,22 @@ scheitern.
 Host-Tests der hardwareunabhängigen Logik:
 
 ```bash
-make -C diagnostics/firmware test            # g++ (Linux/CI)
-make -C diagnostics/firmware test-sanitize   # mit ASan/UBSan
+make -C firmware test            # g++ (Linux/CI)
+make -C firmware test-sanitize   # mit ASan/UBSan
 diagnostics\scripts\run-host-tests-msvc.cmd  # Windows, MSVC /W4 /WX
 ```
 
 ## Aufbau
 
 ```
-diagnostics/firmware/src/main.cpp       nur Hardware: Audiocallback, CDC-Sender, SD-Treiber,
+firmware/src/main.cpp       nur Hardware: Audiocallback, CDC-Sender, SD-Treiber,
                                         Board-Anbindung
-diagnostics/firmware/src/diag_app.*     hardwareunabhängige Hauptschleife: Empfang, Befehle,
+firmware/src/diag_app.*     hardwareunabhängige Hauptschleife: Empfang, Befehle,
                                         Zustandsrahmen, Sendepuffer, LED-/SD-Anforderungen
-diagnostics/firmware/src/diag_core.*    Tasterzähler, SW18-Entprellung, LED-Modi, Session,
+firmware/src/diag_core.*    Tasterzähler, SW18-Entprellung, LED-Modi, Session,
                                         Nachrichtenformat
-diagnostics/firmware/src/ring_buffer.h  lockfreier Empfangsring (USB-ISR -> Hauptschleife)
-diagnostics/protocol/ddp.*              Rahmen, CRC, Parser, Feldzugriff (Firmware + Tests)
+firmware/src/ring_buffer.h  lockfreier Empfangsring (USB-ISR -> Hauptschleife)
+protocol/ddp.*              Rahmen, CRC, Parser, Feldzugriff (Firmware + Tests)
 ```
 
 ### Ablauf
@@ -137,6 +137,6 @@ diagnostics/protocol/ddp.*              Rahmen, CRC, Parser, Feldzugriff (Firmwa
 * `System::GetBootloaderVersion()` unterscheidet nur `v6_0` und „`v6_1` oder neuer“.
   Ob tatsächlich v6.4 installiert ist, lässt sich so nicht nachweisen.
 * Der von libDaisy übernommene LED-DMA-Treiber kann nach einem fehlgeschlagenen
-  `TransmitDma()`-Start hängen (siehe [docs/HARDWARE.md](../../docs/HARDWARE.md)).
+  `TransmitDma()`-Start hängen.
 * `Hardware::Init()` initialisiert auch MIDI-UART, DAC, Gate-Eingänge und CV-ADC.
   Die Firmware nutzt sie nicht.

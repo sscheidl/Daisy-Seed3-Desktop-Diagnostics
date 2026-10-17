@@ -41,7 +41,7 @@ class SimulatedInputs:
 
 
 class SimulatedDevice:
-    """Device side of DDP v1, modelled after diagnostics/firmware/src."""
+    """Device side of DDP v1, modelled after firmware/src."""
 
     def __init__(self, protocol_version: int = p.PROTOCOL_VERSION) -> None:
         self.protocol_version = protocol_version

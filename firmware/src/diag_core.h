@@ -1,5 +1,5 @@
 // Hardware-independent diagnostic logic: input state, LED modes and protocol session.
-// Contains no libDaisy code so it can be tested on the host (diagnostics/tests/firmware).
+// Contains no libDaisy code so it can be tested on the host (tests/firmware).
 #pragma once
 #include "ddp.h"
 #include <cstddef>

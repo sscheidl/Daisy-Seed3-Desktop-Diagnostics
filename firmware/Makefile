@@ -11,7 +11,7 @@ CPP_SOURCES = src/main.cpp src/diag_app.cpp src/diag_core.cpp $(PROTOCOL_DIR)/dd
 C_INCLUDES += -Isrc -I$(PROTOCOL_DIR)
 # FatFs sources are needed for the optional read-only microSD test.
 USE_FATFS = 1
-LIBDAISY_DIR = ../../libDaisy
+LIBDAISY_DIR = ../libDaisy
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
 # Same bootloader variant as the official Desktop template: DFU over carrier port J7.
 # The firmware never installs a bootloader; `make program-boot` is not used here.
@@ -40,7 +40,7 @@ FORBIDDEN_SYMBOLS = \
 REQUIRED_SYMBOLS = RoRead RoWrite f_mount f_readdir SDMMC_CmdReadSingleBlock
 .PHONY: check
 check: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin
-	$(PYTHON) ../../scripts/check-firmware.py $(BUILD_DIR)/$(TARGET).bin
+	$(PYTHON) ../scripts/check-firmware.py $(BUILD_DIR)/$(TARGET).bin
 	@arm-none-eabi-nm $(BUILD_DIR)/$(TARGET).elf > $(BUILD_DIR)/symbols.txt
 	@for s in $(REQUIRED_SYMBOLS); do \
 		if ! grep -q " [A-Za-z] $$s$$" $(BUILD_DIR)/symbols.txt; then \

@@ -1,5 +1,7 @@
 # Testbericht
 
+> Historischer Bericht aus dem Ursprungsrepository; Herkunft und aktuelle Buildstruktur: [MIGRATION.md](MIGRATION.md).
+
 Stand: 17.10.2026, Branch `fix/codex-review-findings` (Korrekturen zum Codex-Review,
 siehe [HANDOVER.md, Abschnitt 9](HANDOVER.md#9-codex-review-von-6f709ec-befunde-und-korrekturen)),
 lokal unter Windows 11 Pro
@@ -11,12 +13,12 @@ wurde von der Anwendung korrekt ignoriert.
 
 | # | Prüfung | Befehl | Ergebnis |
 | --- | --- | --- | --- |
-| 1 | ARM-Cross-Compile (sauberer Neubau) | `bash diagnostics/scripts/build-firmware.sh` | **bestanden**, keine Warnungen aus eigenem Code (`-Wall`) |
-| 2 | BOOT_SRAM-Vektortabelle | `make -C diagnostics/firmware check` | **bestanden**: 122 152 B, Stack `0x20020000`, Reset `0x240003f1` |
+| 1 | ARM-Cross-Compile (sauberer Neubau) | `bash scripts/build-firmware.sh` | **bestanden**, keine Warnungen aus eigenem Code (`-Wall`) |
+| 2 | BOOT_SRAM-Vektortabelle | `make -C firmware check` | **bestanden**: 122 152 B, Stack `0x20020000`, Reset `0x240003f1` |
 | 3 | Kein SD-Schreib-/Lösch-/Sperrpfad gelinkt (SDMMC, HAL, BSP, FatFs) | `make … check` (nm) | **bestanden**; Gegenprobe mit eingeschleustem `f_open(…, FA_WRITE)` wird erkannt |
 | 4 | Reproduzierbarkeit | zweimal sauber gebaut | **bestanden**: identische SHA-256 |
 | 5 | C++-Host-Tests Kern, Protokoll und Hauptschleife (MSVC 19.51, `/W4 /WX`) | `diagnostics\scripts\run-host-tests-msvc.cmd` | **bestanden**: 339 + 635 Prüfungen, 0 Fehler |
-| 6 | Python-Tests gesamt (Python 3.12.10, PySide6 6.8.3, pytest 9.0.3) | `python -m pytest diagnostics/tests/python` | **bestanden**: 162 Tests |
+| 6 | Python-Tests gesamt (Python 3.12.10, PySide6 6.8.3, pytest 9.0.3) | `python -m pytest tests/python` | **bestanden**: 162 Tests |
 | 7 | GUI-Start im Simulationsmodus (Quellcode) | `python -m daisy_diag --sim --selftest 3` | **bestanden** (Exitcode 0) |
 | 8 | EXE-Build (PyInstaller 6.19.0, onefile, windowed) | `diagnostics\windows\build_exe.cmd` | **bestanden**: 46,9 MB |
 | 9 | EXE-Start Simulation | `DaisyDiagnostic.exe --sim --selftest 5` | **bestanden** (Exitcode 0) |

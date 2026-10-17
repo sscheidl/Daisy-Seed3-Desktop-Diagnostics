@@ -2,7 +2,7 @@
 # Installs the pinned xPack ARM GCC and GNU Make for Windows x64 into <repo>/.tools
 # (run from Git Bash). Checksums are the values published with the xPack releases.
 set -euo pipefail
-repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 tools="$repo/.tools"
 mkdir -p "$tools"
 cd "$tools"
