@@ -291,8 +291,8 @@ class BoardWidget(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.translate(self._offset)
         painter.scale(self._transform_scale, self._transform_scale)
-        self._paint_board(painter)
         st = self.state
+        self._paint_board(painter)
         self._paint_audio_jacks(painter, st)
         self._paint_cv_section(painter)
         self._paint_midi(painter)
@@ -307,253 +307,313 @@ class BoardWidget(QWidget):
             self._paint_overlay(painter)
         painter.end()
 
-    def _font(self, size: float, bold: bool = False) -> QFont:
-        font = QFont("Segoe UI")
-        font.setPointSizeF(size)
-        font.setBold(bold)
-        return font
+    # -- helpers --
+    def _font(self, size: float, bold: bool = False, family: str = theme.TECH_FONT) -> QFont:
+        return theme.font(family, size, bold)
 
     def _text(self, painter: QPainter, rect: QRectF, text: str, size: float = 9,
-              color: QColor = theme.SILK, align=Qt.AlignCenter, bold: bool = False) -> None:
-        painter.setFont(self._font(size, bold))
+              color: QColor = theme.SILK, align=Qt.AlignCenter, bold: bool = False,
+              family: str = theme.TECH_FONT) -> None:
+        painter.setFont(self._font(size, bold, family))
         painter.setPen(color)
         painter.drawText(rect, int(align), text)
 
     def _ni_badge(self, painter: QPainter, center: QPointF) -> None:
-        rect = QRectF(center.x() - 22, center.y() - 8, 44, 16)
+        rect = QRectF(center.x() - 20, center.y() - 8, 40, 16)
         painter.setPen(Qt.NoPen)
         painter.setBrush(theme.NI_BADGE)
-        painter.drawRoundedRect(rect, 8, 8)
-        self._text(painter, rect, "n. i.", 7.5, theme.NI_TEXT, bold=True)
+        painter.drawRoundedRect(rect, 1.5, 1.5)
+        self._text(painter, rect, "n. i.", 7.5, theme.NI_TEXT)
 
+    @staticmethod
+    def _metal(rect: QRectF, light: str = "#d3d6d9", dark: str = "#8b8f94") -> QLinearGradient:
+        grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        grad.setColorAt(0, QColor(light))
+        grad.setColorAt(1, QColor(dark))
+        return grad
+
+    def _screw(self, painter: QPainter, c: QPointF, r: float) -> None:
+        painter.setPen(QPen(QColor("#55585c"), 1))
+        painter.setBrush(self._metal(QRectF(c.x() - r, c.y() - r, 2 * r, 2 * r),
+                                     "#c5c8cb", "#6f7378"))
+        painter.drawEllipse(c, r, r)
+        painter.setPen(QPen(QColor("#4a4d51"), 2))
+        painter.drawLine(QPointF(c.x() - r * 0.6, c.y() - r * 0.6),
+                         QPointF(c.x() + r * 0.6, c.y() + r * 0.6))
+
+    # -- board --
     def _paint_board(self, painter: QPainter) -> None:
+        board = QRectF(0, 0, BOARD_W, BOARD_H)
+        shadow = QRectF(4, 6, BOARD_W, BOARD_H)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 90))
+        painter.drawRoundedRect(shadow, 14, 14)
         grad = QLinearGradient(0, 0, 0, BOARD_H)
-        grad.setColorAt(0, QColor("#24272d"))
-        grad.setColorAt(1, QColor("#191b20"))
-        painter.setPen(QPen(QColor("#3a3e46"), 2))
+        grad.setColorAt(0, theme.PCB.lighter(108))
+        grad.setColorAt(1, theme.PCB.darker(108))
+        painter.setPen(QPen(theme.PCB_EDGE, 1.5))
         painter.setBrush(grad)
-        painter.drawRoundedRect(QRectF(0, 0, BOARD_W, BOARD_H), 18, 18)
-        painter.setPen(QPen(QColor("#5b616b"), 1.5))
-        painter.setBrush(QColor("#9aa0a8"))
+        painter.drawRoundedRect(board, 14, 14)
         for x, y in ((28, 22), (1130, 22), (28, 615), (1130, 615)):
-            painter.drawEllipse(QPointF(x, y), 11, 11)
-            painter.drawLine(QPointF(x - 6, y - 6), QPointF(x + 6, y + 6))
-        # open hardware logo and QR code (decoration, as on the silkscreen)
+            self._screw(painter, QPointF(x, y), 11)
+        # open hardware mark and QR code, as printed on the board
         painter.setPen(QPen(theme.SILK, 2))
         painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(QPointF(95, 55), 20, 20)
-        painter.drawEllipse(QPointF(95, 55), 8, 8)
-        self._text(painter, QRectF(55, 78, 80, 14), "open hardware", 7)
+        painter.drawEllipse(QPointF(95, 55), 18, 18)
+        painter.drawEllipse(QPointF(95, 55), 7, 7)
+        self._text(painter, QRectF(50, 76, 90, 14), "open hardware", 7)
         painter.setPen(Qt.NoPen)
         painter.setBrush(theme.SILK)
         for r in range(9):
             for c in range(9):
-                if (r * 7 + c * 3 + r * c) % 5 < 2 or (r < 3 and c < 3) or (r < 3 and c > 5) or (r > 5 and c < 3):
-                    painter.drawRect(QRectF(62 + c * 6, 100 + r * 6, 5.5, 5.5))
-        self._text(painter, QRectF(40, 158, 120, 14), "Get Started Here!", 7)
-        self._text(painter, QRectF(450, 4, 260, 22), "Seed3  Desktop  Dev  Kit", 13)
+                if ((r * 7 + c * 3 + r * c) % 5 < 2 or (r < 3 and c < 3) or (r < 3 and c > 5)
+                        or (r > 5 and c < 3)):
+                    painter.drawRect(QRectF(68 + c * 5.5, 100 + r * 5.5, 5, 5))
+        self._text(painter, QRectF(40, 152, 120, 14), "Get Started Here!", 7)
+        self._text(painter, QRectF(430, 2, 330, 26), "Seed3  Desktop  Dev  Kit", 14,
+                   theme.SILK, bold=True)
 
+    # -- jacks --
     def _paint_audio_jacks(self, painter: QPainter, st: p.BoardState | None) -> None:
         for key, (x, label) in AUDIO_JACKS.items():
             rect = audio_jack_rect(x)
             grad = QLinearGradient(rect.left(), 0, rect.right(), 0)
-            grad.setColorAt(0, QColor("#2b2d31"))
-            grad.setColorAt(0.5, QColor("#4a4d53"))
-            grad.setColorAt(1, QColor("#2b2d31"))
-            painter.setPen(QPen(QColor("#0e0f11"), 2))
+            grad.setColorAt(0, QColor("#0d0e0f"))
+            grad.setColorAt(0.45, QColor("#2a2c2f"))
+            grad.setColorAt(1, QColor("#0d0e0f"))
+            painter.setPen(QPen(QColor("#050505"), 1.5))
             painter.setBrush(grad)
-            painter.drawRoundedRect(rect, 8, 8)
-            painter.setPen(QPen(QColor("#6d7178"), 2))
+            painter.drawRoundedRect(rect, 4, 4)
+            painter.setPen(QPen(QColor("#3c3f43"), 1.5))
             for k in range(3):
-                y = rect.top() + 22 + k * 22
-                painter.drawLine(QPointF(rect.left() + 8, y), QPointF(rect.right() - 8, y))
+                y = rect.top() + 24 + k * 24
+                painter.drawLine(QPointF(rect.left() + 6, y), QPointF(rect.right() - 6, y))
             detected = None
             if st is not None and key == "in_l":
                 detected = st.jack_left
             elif st is not None and key == "in_r":
                 detected = st.jack_right
-            ring = theme.OK if detected else QColor("#15161a")
-            painter.setPen(QPen(ring, 4 if detected else 2))
-            painter.setBrush(QColor("#0b0c0e"))
-            painter.drawEllipse(QPointF(x, rect.top() + 6), 16, 9)
-            self._text(painter, QRectF(x - 70, 118, 140, 14), label, 7.5)
+            painter.setPen(QPen(theme.OK if detected else QColor("#000000"),
+                                3 if detected else 1.5))
+            painter.setBrush(QColor("#000000"))
+            painter.drawEllipse(QPointF(x, rect.top() + 7), 17, 8)
+            self._text(painter, QRectF(x - 70, 118, 140, 14), label, 8)
             if key.startswith("in"):
                 txt = "–" if detected is None else ("Stecker erkannt" if detected else "kein Stecker")
-                col = theme.OK if detected else theme.MUTED
-                self._text(painter, QRectF(x - 70, 133, 140, 14), txt, 8, col, bold=bool(detected))
+                self._text(painter, QRectF(x - 70, 133, 140, 14), txt, 8,
+                           theme.OK if detected else theme.SILK_MUTED)
                 self._ni_badge(painter, QPointF(x, 160))
             else:
                 self._ni_badge(painter, QPointF(x, 145))
 
     def _mini_jack(self, painter: QPainter, center: QPointF, label: str) -> None:
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#34373c"))
-        painter.drawRoundedRect(QRectF(center.x() - 22, center.y() - 22, 44, 44), 5, 5)
-        painter.setBrush(QColor("#8a8f96"))
+        painter.setPen(QPen(QColor("#050505"), 1))
+        painter.setBrush(theme.PLASTIC)
+        painter.drawRect(QRectF(center.x() - 21, center.y() - 21, 42, 42))
+        painter.setPen(QPen(QColor("#4c4f53"), 1))
+        painter.setBrush(self._metal(QRectF(center.x() - 13, center.y() - 13, 26, 26)))
         painter.drawEllipse(center, 13, 13)
-        painter.setBrush(QColor("#0b0c0e"))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#000000"))
         painter.drawEllipse(center, 6, 6)
-        self._text(painter, QRectF(center.x() - 40, center.y() - 40, 80, 14), label, 7)
+        self._text(painter, QRectF(center.x() - 40, center.y() - 40, 80, 14), label, 7.5)
 
     def _paint_cv_section(self, painter: QPainter) -> None:
-        painter.setPen(QPen(theme.SILK, 2))
+        painter.setPen(QPen(theme.SILK, 1.5))
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(QRectF(430, 30, 325, 190))
         for center, label in CV_JACKS.values():
             self._mini_jack(painter, center, label)
-        # Daisy logo
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#f2f2f2"))
+        painter.setBrush(theme.SILK)
         c = QPointF(570, 85)
         for k in range(8):
             a = math.radians(k * 45)
-            painter.drawEllipse(QPointF(c.x() + 17 * math.sin(a), c.y() - 17 * math.cos(a)), 8, 8)
-        painter.setBrush(QColor("#c9c9c9"))
-        painter.drawEllipse(c, 8, 8)
-        self._text(painter, QRectF(500, 140, 140, 16), "CV / Gate", 8.5, theme.MUTED)
+            painter.drawEllipse(QPointF(c.x() + 15 * math.sin(a), c.y() - 15 * math.cos(a)), 7, 7)
+        painter.setBrush(theme.PCB)
+        painter.drawEllipse(c, 6, 6)
+        self._text(painter, QRectF(500, 140, 140, 16), "CV / Gate", 8.5, theme.SILK_MUTED)
         self._ni_badge(painter, QPointF(570, 170))
 
     def _paint_midi(self, painter: QPainter) -> None:
         for y, label in MIDI_JACKS.values():
-            body = QRectF(1050, y - 60, 125, 120)
-            painter.setPen(QPen(QColor("#0e0f11"), 2))
-            painter.setBrush(QColor("#1d1f23"))
-            painter.drawRoundedRect(body, 10, 10)
-            painter.setPen(QPen(QColor("#3c3f45"), 1.5))
-            painter.drawLine(QPointF(1060, y - 40), QPointF(1165, y - 40))
-            painter.drawLine(QPointF(1060, y + 40), QPointF(1165, y + 40))
+            body = QRectF(1052, y - 60, 122, 120)
+            painter.setPen(QPen(QColor("#050505"), 1.5))
+            painter.setBrush(QColor("#151617"))
+            painter.drawRoundedRect(body, 3, 3)
+            painter.setPen(QPen(QColor("#2e3033"), 1.5))
+            painter.drawLine(QPointF(1060, y - 40), QPointF(1166, y - 40))
+            painter.drawLine(QPointF(1060, y + 40), QPointF(1166, y + 40))
             painter.save()
             painter.translate(1038, y)
             painter.rotate(-90)
             self._text(painter, QRectF(-50, -8, 100, 16), label, 9, bold=True)
             painter.restore()
-        self._text(painter, QRectF(1050, 465, 125, 14), "MIDI DIN", 8, theme.MUTED)
-        self._ni_badge(painter, QPointF(1112, 255))
+        self._text(painter, QRectF(1050, 465, 125, 14), "MIDI DIN", 8, theme.SILK_MUTED)
+        self._ni_badge(painter, QPointF(1113, 255))
 
     def _paint_usb_and_seed(self, painter: QPainter) -> None:
-        # J7: carrier USB-C (power + DDP)
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#b8bcc2"))
-        painter.drawRoundedRect(J7_RECT, 6, 6)
-        painter.setBrush(QColor("#2a2c30"))
-        painter.drawRoundedRect(QRectF(J7_RECT.left() + 6, J7_RECT.top() + 14, 12, 32), 5, 5)
-        col = theme.OK if self.connected else theme.MUTED
-        self._text(painter, QRectF(42, 210, 120, 14), "J7 USB-C", 8, theme.SILK, Qt.AlignLeft)
-        self._text(painter, QRectF(42, 225, 160, 14),
-                   "DDP verbunden" if self.connected else "DDP getrennt", 8, col, Qt.AlignLeft,
-                   bold=self.connected)
+        painter.setPen(QPen(QColor("#4c4f53"), 1))
+        painter.setBrush(self._metal(J7_RECT))
+        painter.drawRoundedRect(J7_RECT, 5, 5)
+        painter.setBrush(QColor("#161718"))
+        painter.drawRoundedRect(QRectF(J7_RECT.left() + 7, J7_RECT.top() + 14, 11, 32), 5, 5)
+        self._text(painter, QRectF(44, 211, 140, 14), "J7 USB-C", 8.5, theme.SILK,
+                   Qt.AlignLeft, bold=True)
+        self._text(painter, QRectF(44, 227, 160, 14),
+                   "DDP verbunden" if self.connected else "DDP getrennt", 8,
+                   theme.OK if self.connected else theme.SILK_MUTED, Qt.AlignLeft)
         # Seed3 module
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#121316"))
-        painter.drawRoundedRect(SEED_RECT, 6, 6)
+        painter.setPen(QPen(QColor("#050505"), 1))
+        painter.setBrush(QColor("#111213"))
+        painter.drawRoundedRect(SEED_RECT, 3, 3)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#c8a74d"))
+        painter.setBrush(QColor("#b8964a"))
         for k in range(20):
             x = SEED_RECT.left() + 14 + k * 15
-            painter.drawEllipse(QPointF(x, SEED_RECT.top() + 9), 3.5, 3.5)
-            painter.drawEllipse(QPointF(x, SEED_RECT.bottom() - 9), 3.5, 3.5)
-        painter.setBrush(QColor("#b8bcc2"))
-        painter.drawRoundedRect(QRectF(10, 405, 34, 42), 5, 5)
-        painter.setBrush(QColor("#26282c"))
+            painter.drawEllipse(QPointF(x, SEED_RECT.top() + 9), 3.2, 3.2)
+            painter.drawEllipse(QPointF(x, SEED_RECT.bottom() - 9), 3.2, 3.2)
+        painter.setBrush(self._metal(QRectF(10, 405, 34, 42)))
+        painter.drawRoundedRect(QRectF(10, 405, 34, 42), 4, 4)
+        painter.setBrush(QColor("#1d1e20"))
         painter.drawRect(QRectF(130, 395, 60, 60))
-        self._text(painter, QRectF(200, 405, 110, 40), "Seed3", 11, theme.SILK, bold=True)
+        self._text(painter, QRectF(200, 405, 110, 40), "Seed3", 12, theme.SILK, bold=True)
 
     def _paint_sd(self, painter: QPainter) -> None:
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#9da2a9"))
-        painter.drawRoundedRect(SD_RECT, 4, 4)
-        card = self.state is not None and self.state.sd_card
+        painter.setPen(QPen(QColor("#4c4f53"), 1))
+        painter.setBrush(self._metal(SD_RECT, "#c9ccd0", "#8e9297"))
+        painter.drawRoundedRect(SD_RECT, 2, 2)
         slot = QRectF(SD_RECT.left() + 12, SD_RECT.top() + 10, SD_RECT.width() - 24, 52)
-        painter.setBrush(QColor("#2b2d31"))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#1d1e20"))
         painter.drawRect(slot)
-        if card:
-            painter.setBrush(self.sd_display.color)
+        if self.state is not None and self.state.sd_card:
+            r = slot.adjusted(7, -12, -7, -6)
             path = QPainterPath()
-            r = slot.adjusted(6, -14, -6, -4)
             path.moveTo(r.left(), r.bottom())
             path.lineTo(r.left(), r.top() + 8)
             path.lineTo(r.left() + 8, r.top())
             path.lineTo(r.right(), r.top())
             path.lineTo(r.right(), r.bottom())
             path.closeSubpath()
+            painter.setPen(QPen(QColor("#5c6066"), 1))
+            painter.setBrush(QColor("#2b2d30"))
             painter.drawPath(path)
+            self._text(painter, r.adjusted(0, 10, 0, 0), "SD", 8, theme.SILK, bold=True)
         self._text(painter, QRectF(SD_RECT.left(), SD_RECT.bottom() - 30, SD_RECT.width(), 14),
-                   "microSD", 8, QColor("#1b1d21"), bold=True)
+                   "microSD", 8.5, QColor("#1b1c1e"), bold=True)
         short = self.sd_display.text.split(" (")[0]  # details are in the side panel
-        self._text(painter, QRectF(SD_RECT.left() - 2, SD_RECT.bottom() + 2, 132, 34), short, 8,
+        self._text(painter, QRectF(SD_RECT.left() - 2, SD_RECT.bottom() + 3, 132, 34), short, 8,
                    self.sd_display.color, Qt.AlignLeft | Qt.AlignTop | Qt.TextWordWrap,
                    bold=True)
 
+    # -- toggle switches --
     def _paint_toggle(self, painter: QPainter, center: QPointF, pos: str | None, label: str,
                       sub: str, positions: str) -> None:
         rect = switch_rect(center)
-        painter.setPen(QPen(QColor("#7a2a2a"), 2))
-        painter.setBrush(QColor("#c94a4a"))
-        painter.drawRoundedRect(rect, 5, 5)
-        painter.setBrush(QColor("#d6d8dc"))
-        painter.setPen(QPen(QColor("#555"), 1))
+        grad = QLinearGradient(rect.topLeft(), rect.topRight())
+        grad.setColorAt(0, theme.SWITCH_BODY.darker(125))
+        grad.setColorAt(0.5, theme.SWITCH_BODY)
+        grad.setColorAt(1, theme.SWITCH_BODY.darker(125))
+        painter.setPen(QPen(QColor("#5c1714"), 1))
+        painter.setBrush(grad)
+        painter.drawRoundedRect(rect, 2, 2)
+        # bushing nut
+        painter.setPen(QPen(QColor("#55585c"), 1))
+        painter.setBrush(self._metal(QRectF(center.x() - 12, center.y() - 12, 24, 24)))
         painter.drawEllipse(center, 12, 12)
+        painter.setBrush(QColor("#3a3c3f"))
+        painter.drawEllipse(center, 5, 5)
         if pos is not None:
-            dy = {"U": -22.0, "C": 0.0, "D": 22.0}[pos]
+            dy = {"U": -24.0, "C": 0.0, "D": 24.0}[pos]
             tip = QPointF(center.x(), center.y() + dy)
-            painter.setPen(QPen(QColor("#e6e8ea"), 7, Qt.SolidLine, Qt.RoundCap))
+            painter.setPen(QPen(QColor("#9da1a6"), 7, Qt.SolidLine, Qt.RoundCap))
             painter.drawLine(center, tip)
-            painter.setPen(QPen(theme.ACCENT, 2))
-            painter.setBrush(QColor("#f5f6f7"))
+            painter.setPen(QPen(QColor("#e7e9eb"), 3, Qt.SolidLine, Qt.RoundCap))
+            painter.drawLine(center, tip)
+            painter.setPen(QPen(QColor("#5c6066"), 1))
+            painter.setBrush(self._metal(QRectF(tip.x() - 7, tip.y() - 7, 14, 14),
+                                         "#ffffff", "#9a9ea3"))
             painter.drawEllipse(tip, 7, 7)
-        for k, ch in enumerate(positions):
+        for ch in positions:
             y = {"U": -26, "C": 0, "D": 26}[ch]
             active = ch == pos
             self._text(painter, QRectF(center.x() + 20, center.y() + y - 8, 16, 16), ch, 8,
-                       theme.ACCENT if active else theme.MUTED, bold=active)
-        self._text(painter, QRectF(center.x() - 45, center.y() + 36, 90, 14), label, 8.5, bold=True)
-        self._text(painter, QRectF(center.x() - 45, center.y() + 50, 90, 14), sub, 7, theme.MUTED)
+                       theme.SILK if active else theme.SILK_MUTED, bold=active)
+        self._text(painter, QRectF(center.x() - 45, center.y() + 36, 90, 14), label, 9, bold=True)
+        self._text(painter, QRectF(center.x() - 45, center.y() + 50, 90, 14), sub, 7.5,
+                   theme.SILK_MUTED)
 
     def _paint_switches(self, painter: QPainter, st: p.BoardState | None) -> None:
         self._paint_toggle(painter, SW18_POS, st.sw18 if st else None, "SW18", "ON-OFF-ON", "UCD")
         self._paint_toggle(painter, SW17_POS, st.sw17 if st else None, "SW17", "ON-ON", "UD")
 
+    # -- potentiometers --
     def _paint_pot(self, painter: QPainter, i: int, st: p.BoardState | None) -> None:
         c = pot_center(i)
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#d9dbde"))
-        painter.drawRoundedRect(QRectF(c.x() - 36, c.y() - 30, 72, 60), 6, 6)
-        painter.setBrush(QColor("#9da2a9"))
-        painter.drawRect(QRectF(c.x() - 41, c.y() - 8, 6, 16))
-        painter.drawRect(QRectF(c.x() + 35, c.y() - 8, 6, 16))
-        # value arc and min/max range
-        arc_rect = QRectF(c.x() - 33, c.y() - 33, 66, 66)
-        painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor("#4a4e55"), 4, Qt.SolidLine, Qt.FlatCap))
-        painter.drawArc(arc_rect, int(225 * 16), int(-270 * 16))
+        # mounting tabs
+        painter.setPen(QPen(QColor("#4c4f53"), 1))
+        painter.setBrush(self._metal(QRectF(c.x() - 42, c.y() - 8, 84, 16)))
+        painter.drawRect(QRectF(c.x() - 42, c.y() - 6, 7, 12))
+        painter.drawRect(QRectF(c.x() + 35, c.y() - 6, 7, 12))
+        # printed scale: 270 degrees, 11 major and 10 minor ticks
+        for k in range(21):
+            a = math.radians(pot_angle(k / 20))
+            major = k % 2 == 0
+            r1, r2 = (31.0, 37.5) if major else (31.0, 34.5)
+            painter.setPen(QPen(theme.SILK if major else theme.SILK_MUTED, 1.4 if major else 1))
+            painter.drawLine(QPointF(c.x() + r1 * math.sin(a), c.y() - r1 * math.cos(a)),
+                             QPointF(c.x() + r2 * math.sin(a), c.y() - r2 * math.cos(a)))
+        # min/max markers seen since connecting
         lo, hi = self.pot_min[i], self.pot_max[i]
-        if lo is not None and hi is not None and hi > lo:
-            painter.setPen(QPen(theme.RANGE, 4, Qt.SolidLine, Qt.FlatCap))
-            painter.drawArc(arc_rect, int((225 - 270 * lo) * 16), int(-270 * (hi - lo) * 16))
-        if st is not None:
-            painter.setPen(QPen(theme.ACCENT, 4, Qt.SolidLine, Qt.FlatCap))
-            painter.drawArc(arc_rect, int(225 * 16), int(-270 * st.pots[i] * 16))
-        knob = QRadialGradient(c.x() - 6, c.y() - 6, 30)
-        knob.setColorAt(0, QColor("#3b3e44"))
-        knob.setColorAt(1, QColor("#0f1012"))
-        painter.setPen(QPen(QColor("#000"), 1))
-        painter.setBrush(knob)
-        painter.drawEllipse(c, 24, 24)
+        if lo is not None and hi is not None:
+            for v in (lo, hi):
+                a = math.radians(pot_angle(v))
+                tip = QPointF(c.x() + 39 * math.sin(a), c.y() - 39 * math.cos(a))
+                left = QPointF(c.x() + 45 * math.sin(a - 0.09), c.y() - 45 * math.cos(a - 0.09))
+                right = QPointF(c.x() + 45 * math.sin(a + 0.09), c.y() - 45 * math.cos(a + 0.09))
+                path = QPainterPath(tip)
+                path.lineTo(left)
+                path.lineTo(right)
+                path.closeSubpath()
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(theme.SILK_MUTED)
+                painter.drawPath(path)
+        # knob: black, knurled skirt, white pointer
+        painter.setPen(QPen(QColor("#000000"), 1))
+        painter.setBrush(QColor("#0b0b0c"))
+        painter.drawEllipse(c, 27, 27)
+        painter.setPen(QPen(QColor("#2a2b2d"), 1))
+        for k in range(36):
+            a = math.radians(k * 10)
+            painter.drawLine(QPointF(c.x() + 23.5 * math.sin(a), c.y() - 23.5 * math.cos(a)),
+                             QPointF(c.x() + 26.5 * math.sin(a), c.y() - 26.5 * math.cos(a)))
+        top = QRadialGradient(c.x() - 7, c.y() - 9, 26)
+        top.setColorAt(0, QColor("#38393c"))
+        top.setColorAt(1, QColor("#0e0e0f"))
+        painter.setPen(QPen(QColor("#000000"), 1))
+        painter.setBrush(top)
+        painter.drawEllipse(c, 22, 22)
         if st is not None:
             a = math.radians(pot_angle(st.pots[i]))
-            tip = QPointF(c.x() + 19 * math.sin(a), c.y() - 19 * math.cos(a))
-            painter.setPen(QPen(QColor("#f5f6f7"), 4, Qt.SolidLine, Qt.RoundCap))
-            painter.drawLine(QPointF(c.x() + 5 * math.sin(a), c.y() - 5 * math.cos(a)), tip)
-        self._text(painter, QRectF(c.x() - 45, c.y() - 58, 90, 16), f"VR{i + 1}", 9, bold=True)
-        val = "–" if st is None else f"{st.pots[i] * 100:5.1f} %"
-        self._text(painter, QRectF(c.x() - 45, c.y() + 34, 90, 16), val, 10,
-                   theme.ACCENT if st else theme.MUTED, bold=True)
+            painter.setPen(QPen(QColor("#f4f4f2"), 3.2, Qt.SolidLine, Qt.RoundCap))
+            painter.drawLine(QPointF(c.x() + 6 * math.sin(a), c.y() - 6 * math.cos(a)),
+                             QPointF(c.x() + 20 * math.sin(a), c.y() - 20 * math.cos(a)))
+        self._text(painter, QRectF(c.x() - 45, c.y() - 62, 90, 16), f"VR{i + 1}", 9.5, bold=True)
+        box = QRectF(c.x() - 30, c.y() + 41, 60, 18)
+        painter.setPen(QPen(QColor("#45484c"), 1))
+        painter.setBrush(QColor("#0c0d0e"))
+        painter.drawRect(box)
+        val = "–" if st is None else f"{st.pots[i] * 100:.1f} %"
+        self._text(painter, box, val, 8.5, theme.TEXT if st else theme.FAINT,
+                   family=theme.MONO_FONT)
         if lo is not None and hi is not None:
-            self._text(painter, QRectF(c.x() - 45, c.y() + 50, 90, 14),
-                       f"{lo * 100:.0f}–{hi * 100:.0f} %", 7.5, theme.RANGE)
+            self._text(painter, QRectF(c.x() - 45, c.y() + 60, 90, 13),
+                       f"{lo * 100:.0f}–{hi * 100:.0f} %", 7, theme.SILK_MUTED)
 
+    # -- buttons and LEDs --
     def _paint_button_area(self, painter: QPainter, st: p.BoardState | None) -> None:
-        painter.setPen(QPen(theme.SILK, 2))
+        painter.setPen(QPen(theme.SILK, 1.5))
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(QRectF(365, 425, 580, 200))
         for i in range(p.NUM_BUTTONS):
@@ -565,79 +625,93 @@ class BoardWidget(QWidget):
         on = st is not None and st.leds[i]
         level = (st.led_brightness / 100.0) if st else 0.0
         if on and level > 0:
-            glow = QRadialGradient(rect.center(), 26)
+            halo = QRadialGradient(rect.center(), 26)
             col = QColor(theme.LED_ON)
             col.setAlphaF(0.55 * level)
-            glow.setColorAt(0, col)
-            glow.setColorAt(1, QColor(0, 0, 0, 0))
+            halo.setColorAt(0, col)
+            halo.setColorAt(1, QColor(255, 47, 36, 0))
             painter.setPen(Qt.NoPen)
-            painter.setBrush(glow)
-            painter.drawEllipse(rect.center(), 26, 22)
-        painter.setPen(QPen(theme.ACCENT if self.led_selectable else QColor("#55595f"),
-                            1.5 if self.led_selectable else 1))
+            painter.setBrush(halo)
+            painter.drawEllipse(rect.center(), 26, 19)
         if on:
-            fill = QColor(theme.LED_ON)
-            fill.setAlphaF(0.35 + 0.65 * level)
-            painter.setBrush(fill)
+            lens = QRadialGradient(rect.center(), rect.width() / 2)
+            lens.setColorAt(0, QColor("#ffe0da") if level > 0.5 else theme.LED_ON)
+            lens.setColorAt(0.5, theme.LED_ON)
+            lens.setColorAt(1, QColor(theme.LED_ON).darker(int(140 - 40 * level)))
+            painter.setPen(QPen(QColor("#ff8a80"), 1))
+            painter.setBrush(lens)
         else:
-            painter.setBrush(QColor("#4a4d52"))
-        painter.drawRoundedRect(rect, 2, 2)
-        self._text(painter, QRectF(rect.left() - 32, rect.top() - 3, 30, 16), f"D{i + 1}", 7.5,
-                   theme.MUTED, Qt.AlignRight | Qt.AlignVCenter)
+            painter.setPen(QPen(QColor("#1d0b0a"), 1))
+            painter.setBrush(theme.LED_OFF)
+        painter.drawRoundedRect(rect, 3, 3)
+        self._text(painter, QRectF(rect.left() - 32, rect.top() - 2, 30, 16), f"D{i + 1}", 7.5,
+                   theme.SILK_MUTED, Qt.AlignRight | Qt.AlignVCenter)
 
     def _paint_button(self, painter: QPainter, i: int, st: p.BoardState | None) -> None:
         rect = button_rect(i)
         pressed = st is not None and st.buttons[i]
-        if pressed:
-            painter.setPen(Qt.NoPen)
-            glow = QRadialGradient(rect.center(), 34)
-            col = QColor(theme.ACCENT)
-            col.setAlphaF(0.6)
-            glow.setColorAt(0, col)
-            glow.setColorAt(1, QColor(0, 0, 0, 0))
-            painter.setBrush(glow)
-            painter.drawEllipse(rect.center(), 34, 34)
-        painter.setPen(QPen(QColor("#0e0f11"), 1.5))
-        painter.setBrush(QColor("#c9ccd0"))
-        painter.drawRoundedRect(rect, 3, 3)
+        c = rect.center()
+        # metal switch body
+        painter.setPen(QPen(QColor("#f2f2f0") if pressed else QColor("#1a1b1c"),
+                            2.2 if pressed else 1))
+        painter.setBrush(self._metal(rect, "#cfd2d5", "#8a8e93"))
+        painter.drawRoundedRect(rect, 1.5, 1.5)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#6c7075"))
         for dx in (-13, 13):
             for dy in (-13, 13):
-                painter.setBrush(QColor("#7d8187"))
-                painter.drawEllipse(QPointF(rect.center().x() + dx, rect.center().y() + dy), 2.5, 2.5)
-        cap = QRadialGradient(rect.center().x() - 3, rect.center().y() - 3, 14)
+                painter.drawEllipse(QPointF(c.x() + dx, c.y() + dy), 2.2, 2.2)
+        # round actuator: raised when released, pushed in (smaller, darker, shaded) when pressed
         if pressed:
-            cap.setColorAt(0, QColor("#7ff3ff"))
-            cap.setColorAt(1, QColor("#1aa6c4"))
+            painter.setBrush(QColor("#3b3d40"))
+            painter.drawEllipse(c, 12, 12)
+            cap = QRadialGradient(c.x() + 2, c.y() + 2, 11)
+            cap.setColorAt(0, theme.BUTTON_CAP.darker(150))
+            cap.setColorAt(1, theme.BUTTON_CAP.darker(210))
+            painter.setBrush(cap)
+            painter.setPen(QPen(QColor("#2a1d10"), 1))
+            painter.drawEllipse(c, 9, 9)
         else:
-            cap.setColorAt(0, QColor("#e3b48a"))
-            cap.setColorAt(1, QColor("#a8754c"))
-        painter.setBrush(cap)
-        painter.setPen(QPen(QColor("#5a3a20") if not pressed else theme.ACCENT, 1.5))
-        painter.drawEllipse(rect.center(), 11 if not pressed else 10, 11 if not pressed else 10)
+            painter.setBrush(QColor(0, 0, 0, 70))
+            painter.drawEllipse(QPointF(c.x() + 1.5, c.y() + 2), 11.5, 11.5)
+            cap = QRadialGradient(c.x() - 3, c.y() - 4, 13)
+            cap.setColorAt(0, theme.BUTTON_CAP.lighter(125))
+            cap.setColorAt(1, theme.BUTTON_CAP.darker(125))
+            painter.setBrush(cap)
+            painter.setPen(QPen(QColor("#5e4227"), 1))
+            painter.drawEllipse(c, 11, 11)
         self._text(painter, QRectF(rect.left() - 34, rect.top() + 9, 32, 16), f"S{i + 1}", 8.5,
-                   theme.ACCENT if pressed else theme.SILK, Qt.AlignRight | Qt.AlignVCenter,
+                   theme.SILK if pressed else theme.SILK_MUTED, Qt.AlignRight | Qt.AlignVCenter,
                    bold=pressed)
 
+    # -- headphones, RV1 --
     def _paint_phones(self, painter: QPainter) -> None:
-        painter.setPen(QPen(QColor("#0e0f11"), 2))
-        painter.setBrush(QColor("#1b1c20"))
-        painter.drawRoundedRect(PHONES_RECT, 6, 6)
-        painter.setBrush(QColor("#0b0c0e"))
+        painter.setPen(QPen(QColor("#050505"), 1.5))
+        painter.setBrush(QColor("#141516"))
+        painter.drawRoundedRect(PHONES_RECT, 3, 3)
+        painter.setBrush(QColor("#000000"))
         painter.drawEllipse(QPointF(PHONES_RECT.center().x(), PHONES_RECT.bottom() - 6), 10, 6)
-        self._text(painter, QRectF(940, 520, 80, 14), "PHONES J5", 7.5)
-        knob = QRadialGradient(RV1_CENTER.x() - 10, RV1_CENTER.y() - 10, 50)
-        knob.setColorAt(0, QColor("#2f3237"))
-        knob.setColorAt(1, QColor("#050506"))
-        painter.setPen(QPen(QColor("#000"), 1))
-        painter.setBrush(knob)
+        self._text(painter, QRectF(935, 520, 90, 14), "PHONES J5", 7.5)
+        painter.setPen(QPen(QColor("#000000"), 1))
+        painter.setBrush(QColor("#0b0b0c"))
         painter.drawEllipse(RV1_CENTER, 42, 42)
-        self._text(painter, QRectF(1085, 575, 90, 14), "RV1 (analog)", 7.5, theme.MUTED)
+        painter.setPen(QPen(QColor("#26272a"), 1))
+        for k in range(48):
+            a = math.radians(k * 7.5)
+            painter.drawLine(QPointF(RV1_CENTER.x() + 37 * math.sin(a), RV1_CENTER.y() - 37 * math.cos(a)),
+                             QPointF(RV1_CENTER.x() + 41 * math.sin(a), RV1_CENTER.y() - 41 * math.cos(a)))
+        top = QRadialGradient(RV1_CENTER.x() - 10, RV1_CENTER.y() - 12, 40)
+        top.setColorAt(0, QColor("#333437"))
+        top.setColorAt(1, QColor("#0d0d0e"))
+        painter.setBrush(top)
+        painter.drawEllipse(RV1_CENTER, 34, 34)
+        self._text(painter, QRectF(1080, 576, 100, 14), "RV1 (analog)", 8, theme.SILK_MUTED)
 
     def _paint_overlay(self, painter: QPainter) -> None:
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(10, 11, 13, 150))
-        painter.drawRoundedRect(QRectF(0, 0, BOARD_W, BOARD_H), 18, 18)
-        self._text(painter, QRectF(0, 260, BOARD_W, 40), "Keine Gerätedaten", 22, theme.TEXT,
+        painter.setBrush(QColor(12, 13, 14, 165))
+        painter.drawRoundedRect(QRectF(0, 0, BOARD_W, BOARD_H), 14, 14)
+        self._text(painter, QRectF(0, 258, BOARD_W, 40), "Keine Gerätedaten", 22, theme.TEXT,
                    bold=True)
         self._text(painter, QRectF(0, 300, BOARD_W, 30),
                    "Daisy Seed3 über J7 anschließen oder Simulation wählen", 12, theme.MUTED)

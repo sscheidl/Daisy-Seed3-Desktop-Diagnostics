@@ -66,8 +66,10 @@ Exitcode 0 nur bei empfangenen Gerätedaten), `--screenshot DATEI`.
   PID `5740` und prüft sie mit einem `HELLO`-Handshake. Andere STM32-Geräte mit
   derselben Kennung werden nach 1 s ohne passende Antwort übersprungen.
 * Ein fester Port kann im Auswahlfeld gewählt werden (★ = mögliche Daisy-Kennung).
-* Status: **Verbunden** (grün), **Verbinde …**, **Getrennt**, **Verbindungsfehler**
-  (rot, z. B. 1,5 s keine Daten), **Protokoll inkompatibel**.
+* Kopfzeile: Umschalter **Hardware (USB)** / **Simulation**, Statuspunkt mit Text und
+  **Trennen**/**Verbinden**.
+* Status: **Verbunden** (grüner Punkt), **Verbinde …**, **Getrennt** (grau),
+  **Verbindungsfehler** (rot, z. B. 1,5 s keine Daten), **Protokoll inkompatibel** (gelb).
 * Angezeigt werden Firmware- und Protokollversion, Bootloader laut libDaisy,
   Zustandsrate, Rahmenfehler, verlorene Rahmen, PING-Antwortzeit, die gemessene
   Steuer-Update-Rate der Firmware (Soll 1000 Hz) und die Anzahl Wiederverbindungen.
@@ -78,12 +80,15 @@ Exitcode 0 nur bei empfangenen Gerätedaten), `--screenshot DATEI`.
 
 Die Grafik entspricht der Anordnung auf dem Desktop Dev Kit:
 
-* **S1–S16:** zwei Reihen à acht Taster, gedrückt = türkis hervorgehoben.
-* **D1–D16:** je oberhalb des Tasters, gelb = **Sollzustand EIN**.
-* **VR1–VR8:** Zeiger und Wert in Prozent; violetter Bogen = seit Verbindungsbeginn
-  gesehener Minimal-/Maximalbereich.
+* **S1–S16:** zwei Reihen à acht Taster. Gedrückt: Kappe eingedrückt und dunkel,
+  weißer Rahmen, Beschriftung hell.
+* **D1–D16:** rote LEDs je oberhalb des Tasters; leuchtend rot = **Sollzustand EIN**,
+  dunkelrot = AUS.
+* **VR1–VR8:** schwarzer Drehknopf mit weißer Marke auf gedruckter Skala, Wert in Prozent
+  im Feld darunter; graue Dreiecke an der Skala = seit Verbindungsbeginn gesehener
+  Minimal-/Maximalwert.
 * **SW17** (2 Positionen) und **SW18** (3 Positionen): Hebel und Buchstabe U/C/D.
-* **microSD:** grau „Keine Karte“, blau „Karte erkannt“, grün „Dateisystem lesbar“,
+* **microSD:** grau „Keine Karte“, weiß „Karte erkannt“, grün „Dateisystem lesbar“,
   rot „Fehler“.
 * **Audioeingänge:** grüner Ring und „Stecker erkannt“, wenn ein Stecker steckt.
 * Grau markierte „n. i.“-Bereiche sind nicht implementiert. Tooltips erklären jedes Element.

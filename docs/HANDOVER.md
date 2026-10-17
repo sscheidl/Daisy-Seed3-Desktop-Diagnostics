@@ -42,7 +42,7 @@ aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
 * Simulationsmodus mit vollständigem Gerätemodell (gleiches Protokoll), deutlich
   als Simulation gekennzeichnet; Fehlerinjektion (Kabel ziehen, hängende Firmware,
   fehlerhafter Rahmen, langsame SD-Karte in Tests).
-* Dark Theme, keine Menüs, EXE per PyInstaller.
+* Dunkle Messgeräte-Optik (Anthrazit, graue Bedienfelder, rote LEDs; Grün/Rot nur als Statusfarben), keine Menüs, EXE per PyInstaller.
 
 ## 2. Nicht implementiert (bewusst)
 
