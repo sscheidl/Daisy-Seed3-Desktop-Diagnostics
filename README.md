@@ -22,7 +22,7 @@ kommunizieren.
 | 8 Potis VR1–VR8 | normiert 0…1 und ADC-Rohwert | Drehregler, Prozent, Min/Max |
 | SW17 (2 Pos.), SW18 (3 Pos.) | libDaisy `Switch` / `Switch3` (+ Entprellung) | Hebelstellung |
 | microSD | Kartenerkennung, optional **nur lesender** Dateisystemtest | keine Karte / erkannt / lesbar / Fehler |
-| Audioeingänge L/R | Steckererkennung | Anzeige an den Buchsen |
+| Audioeingänge L/R | Steckererkennung (nur Eingänge; Audio Out hat keine) | Anzeige an den beiden Eingangsbuchsen |
 | USB | DDP v1: Handshake, 10–100 Hz Zustand, Befehle, CRC, Keepalive | Autoerkennung, Zeitüberwachung, Wiederverbindung |
 | Simulation | – | Gerätesimulator mit demselben Protokoll |
 

@@ -48,7 +48,7 @@ aus Quellcode, libDaisy und offizieller Dokumentation abgeleitet.
 
 ## 2. Nicht implementiert (bewusst)
 
-Audio Input/Output (nur Steckererkennung), Audio-Engine/DSP, MIDI DIN, USB-MIDI,
+Audio Input/Output (nur Steckererkennung der beiden Eingänge; die Ausgänge haben keine), Audio-Engine/DSP, MIDI DIN, USB-MIDI,
 USB-Host, CV Input/Output, Gate Input. In der GUI als „Nicht implementiert“ bzw.
 „n. i.“ gekennzeichnet. USB-Host-Fähigkeit und elektrische Voraussetzungen wurden
 nicht vorausgesetzt und nicht geprüft. Keine Schreib- oder Formatierfunktionen für SD.
