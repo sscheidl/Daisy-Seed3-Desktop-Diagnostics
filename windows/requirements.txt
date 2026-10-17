@@ -1,0 +1,6 @@
+# Runtime
+PySide6==6.8.3
+pyserial==3.5
+# Tests and packaging
+pytest==9.0.3
+pyinstaller==6.19.0
