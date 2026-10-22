@@ -1,5 +1,9 @@
 # Installation and usage
 
+For the optional writable USB card-reader variant, see
+[SD_CARD_READER.md](SD_CARD_READER.md). The regular diagnostic image stays
+strictly read-only; its disabled reader controls explain which firmware is needed.
+
 ![GUI in simulation mode](images/gui-simulation.png)
 
 *Simulation screenshot: all values are simulated; no hardware is connected.*

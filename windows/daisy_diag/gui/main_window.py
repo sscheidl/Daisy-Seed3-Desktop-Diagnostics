@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QCheckBox, QComb
                                QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
                                QLabel, QMainWindow, QPlainTextEdit, QPushButton, QScrollArea,
                                QSlider, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout,
-                               QWidget)
+                               QWidget, QMessageBox)
 
 from .. import __version__
 from .. import protocol as p
@@ -265,6 +265,14 @@ class MainWindow(QMainWindow):
         self.sim_jr.toggled.connect(lambda on: self._sim_set_jack("right", on))
         for w in (self.sim_sd_card, self.sim_sd_fs, self.sim_jl, self.sim_jr):
             layout.addWidget(w)
+        self.sim_reader_eject = QPushButton("Simulate Windows eject")
+        self.sim_reader_eject.clicked.connect(
+            lambda: self._sim_device() and self._sim_device().reader_eject())
+        layout.addWidget(self.sim_reader_eject)
+        self.sim_reader_reset = QPushButton("Simulate USB bus reset")
+        self.sim_reader_reset.clicked.connect(
+            lambda: self._sim_device() and self._sim_device().reader_bus_reset())
+        layout.addWidget(self.sim_reader_reset)
         return box
 
     def _build_led_group(self) -> QGroupBox:
@@ -335,6 +343,15 @@ class MainWindow(QMainWindow):
         note.setObjectName("hint")
         note.setWordWrap(True)
         layout.addWidget(note)
+        self.reader_status = QLabel("Card reader: checking firmware capability …")
+        self.reader_status.setWordWrap(True)
+        layout.addWidget(self.reader_status)
+        self.reader_share = QPushButton("Share SD card with Windows")
+        self.reader_share.clicked.connect(self._share_reader)
+        layout.addWidget(self.reader_share)
+        self.reader_return = QPushButton("Return card to diagnostics")
+        self.reader_return.clicked.connect(self._return_reader)
+        layout.addWidget(self.reader_return)
         return box
 
     def _build_inputs_group(self) -> QGroupBox:
@@ -494,7 +511,11 @@ class MainWindow(QMainWindow):
                 self.sd_result = None
             elif kind == "sd":
                 self.sd_result = payload
-                self._log(f"microSD-Test: {self._sd_text()[0]}")
+                self._log(f"microSD test: {self._sd_text()[0]}")
+            elif kind == "reader":
+                self.sd_result = None
+                if payload is not None:
+                    self._log(f"Card reader: {payload.state}")
             elif kind == "log":
                 self._log(str(payload))
         if board_changed:
@@ -523,6 +544,15 @@ class MainWindow(QMainWindow):
             return 'No data', theme.MUTED
         if not st.sd_card:
             return 'No card', theme.MUTED
+        reader = self.session.reader if self.session.reader_supported else None
+        if reader and reader.state != "LOCAL":
+            return {
+                "STARTING": ("Preparing card reader …", theme.TEXT),
+                "SHARED": ("Shared with Windows", theme.WARN),
+                "EJECTED": ("Ejected by Windows", theme.OK),
+                "INTERRUPTED": ("Card access interrupted", theme.ERROR),
+                "ERROR": ("Card I/O error", theme.ERROR),
+            }[reader.state]
         if self.session.sd_test_pending:
             return 'Read test in progress …', theme.TEXT
         r = self.sd_result
@@ -581,7 +611,39 @@ class MainWindow(QMainWindow):
             cb.setEnabled(enabled)
         self.br_slider.setEnabled(enabled)
         self.chase_slider.setEnabled(enabled)
-        self.sd_button.setEnabled(enabled and st.sd_card and not s.sd_test_pending)
+        reader = s.reader if s.reader_supported else None
+        local = not s.reader_supported or (reader is not None and reader.state == "LOCAL")
+        self.sd_button.setEnabled(enabled and st.sd_card and not s.sd_test_pending
+                                  and not s.reader_pending and local)
+        self.reader_share.setEnabled(bool(enabled and st.sd_card and reader and
+                                          reader.state == "LOCAL" and not reader.busy
+                                          and not s.sd_test_pending and not s.reader_pending))
+        self.reader_return.setEnabled(bool(enabled and reader and not reader.busy and
+                                           reader.state in ("EJECTED", "INTERRUPTED", "ERROR")
+                                           and not s.reader_pending))
+        self.reader_return.setText("Acknowledge interrupted access" if reader and
+                                  reader.state in ("INTERRUPTED", "ERROR") else
+                                  "Return card to diagnostics")
+        if not s.connected:
+            reader_text = "Card reader: disconnected; card ownership is unknown."
+        elif not s.reader_supported:
+            reader_text = "Card reader unavailable: install the CardReader firmware variant."
+        elif s.reader_pending:
+            reader_text = "Card reader: waiting for firmware …"
+        elif reader is None:
+            reader_text = "Card reader: state unknown; waiting for firmware status."
+        else:
+            reader_text = {
+                "LOCAL": "Card available for diagnostics. Sharing enables Windows read/write access.",
+                "STARTING": "Preparing the card for Windows …",
+                "SHARED": "Windows owns the card. Eject it in Windows before returning it here.",
+                "EJECTED": "Windows eject received and card writes completed. You can return the card.",
+                "INTERRUPTED": "Access was interrupted. Windows may have lost pending changes. Close card files before acknowledging.",
+                "ERROR": "Card I/O failed. Windows may have lost pending changes. Close card files before acknowledging.",
+            }[reader.state]
+        if s.simulated:
+            reader_text += " Simulation only: no Windows drive is created."
+        self.reader_status.setText(reader_text)
         self.rate_combo.setEnabled(enabled)
         if st is not None:
             btn = self.led_buttons.get(st.led_mode)
@@ -602,7 +664,8 @@ class MainWindow(QMainWindow):
         self.sd_status.setStyleSheet(f"font-size: 12pt; font-weight: 700; color: {color.name()};")
         self.sd_detail.setText(
             "" if st is None else
-            ('Card detected on D7 (SDMMC_DETECT). Read test available.' if st.sd_card and
+            ('SD read test is unavailable until the card is returned.' if st.sd_card and not local else
+             'Card detected on D7 (SDMMC_DETECT). Read test available.' if st.sd_card and
              self.sd_result is None else
              'The slot reports no card.' if not st.sd_card else ""))
 
@@ -674,6 +737,27 @@ class MainWindow(QMainWindow):
     def _sd_test(self) -> None:
         if self.session and self.session.request_sd_test():
             self._log('microSD read test requested')
+
+    def _share_reader(self) -> None:
+        if self.session and self.session.request_reader("SHARE"):
+            self.sd_result = None
+            self._log("SD card sharing requested; eject in Windows before returning the card")
+
+    def _return_reader(self) -> None:
+        s = self.session
+        if s is None or s.reader is None:
+            return
+        if s.reader.state in ("INTERRUPTED", "ERROR"):
+            answer = QMessageBox.warning(self, "Interrupted SD access",
+                "Windows may have lost pending changes. Close all files and applications "
+                "using this card. Acknowledging does not recover unsaved data or confirm "
+                "a clean eject. Return the card to diagnostics?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return
+        if s.request_reader("RETURN"):
+            self.sd_result = None
+            self._log("SD card return requested")
 
     def _reset_minmax(self) -> None:
         self.board.pot_min = [None] * p.NUM_POTS

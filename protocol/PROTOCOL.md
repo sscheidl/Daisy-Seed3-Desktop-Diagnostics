@@ -173,8 +173,10 @@ SD st=ERROR res=13
 
 The test uses only `f_mount`, `f_opendir`, `f_readdir`, `f_closedir`, and unmounting,
 over a custom write-protected driver (`STA_PROTECT`). It does not write, format,
-or modify the card. The build rejects SD write/erase/lock commands at SDMMC, HAL,
-driver, and FatFs levels; see [FIRMWARE.md](../docs/FIRMWARE.md).
+or modify the card. The default diagnostic build rejects SD write/erase/lock
+commands at SDMMC, HAL, driver, and FatFs levels. The separate card-reader build
+allows polled SD block writes only for MSC, and rejects SDTEST whenever ownership
+is not LOCAL. See [FIRMWARE.md](../docs/FIRMWARE.md).
 
 Streaming pauses during the test (typically < 0.5 s). Reads have a five-second
 budget plus initialization; the host tolerates up to 20 s. Press counts retain
@@ -188,3 +190,51 @@ See the host-to-firmware command table above.
 
 `proto=1` identifies this specification. A host receiving another major version
 shows **Incompatible protocol** and sends no control commands.
+
+## Optional card reader extension (firmware/application 0.2.0)
+
+The writable firmware advertises `sdmsc` in HELLO capabilities. The protected
+build does not. The DDP v1 framing, CRC and existing fields remain unchanged.
+Older hosts ignore the additional message; newer hosts disable reader controls
+when `sdmsc` is absent. USB MSC is a separate interface, not a DDP file tunnel.
+
+Commands require an active HELLO session:
+
+| Command | Meaning |
+| --- | --- |
+| `READER a=STATUS` | Query authoritative ownership/transport status |
+| `READER a=SHARE` | From LOCAL with a detected card and idle BOT transport: initialize and expose LUN 0 |
+| `READER a=RETURN` | From EJECTED, INTERRUPTED or ERROR with idle BOT: close/reset SD interface and return to LOCAL |
+
+Success body (also sent with SYS while streaming, once per second):
+
+```text
+READER state=SHARED sectors=62332928 busy=0 a=STATUS
+```
+
+Required fields: `state` is LOCAL / STARTING / SHARED / EJECTED / INTERRUPTED /
+ERROR; `sectors` is a decimal uint32 count of 512-byte physical card sectors;
+`busy` is 0 or 1 (BOT not waiting for a new command); `a` is STATUS / SHARE / RETURN.
+Direct responses echo the action; periodic status uses STATUS. A periodic status
+must not acknowledge a different outstanding action. Error bodies are
+`ERR c=READER e=ARG|SESSION|STATE|UNSUPPORTED`; SDTEST during non-local ownership
+returns `ERR c=SDTEST e=BUSY`.
+
+No implicit return occurs on BYE, missing PING, application close or serial-port
+reconnect. On HELLO the host queries STATUS; it never automatically repeats SHARE.
+Requested reader commands tolerate 20 s; expiration means unknown ownership,
+not successful eject. While SHARED, the host tolerates a five-second receive gap
+because a polled block write plus programming wait can take two seconds. Other
+normal receive gaps retain the 1.5 s timeout.
+
+SHARED exposes a removable read/write LUN. A successful SCSI START STOP UNIT
+(LoEj=1, Start=0) synchronizes the card and sets EJECTED. Windows still owns any
+host-side caches until it issues its eject; SYNCHRONIZE CACHE alone does not
+return ownership. PREVENT MEDIUM REMOVAL blocks eject until allowed again.
+Bus/BOT reset, removal or SD I/O failure quarantines the medium (INTERRUPTED or
+ERROR), not cleanly ejected. RETURN in these states is explicit acknowledgement
+of interrupted access; the application asks for confirmation and does not claim
+to recover data. Newly shared media report UNIT ATTENTION / MEDIUM CHANGED.
+
+See [reader instructions](../docs/SD_CARD_READER.md) and
+[implementation/review handover](../docs/SD_CARD_READER_REVIEW.md).

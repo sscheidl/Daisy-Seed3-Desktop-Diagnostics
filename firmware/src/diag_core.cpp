@@ -122,6 +122,9 @@ void Session::WriteHello(ddp::Writer& out) const {
         .Str(" dev=seed3-desktop boot=BOOT_SRAM bl=").Str(bootloader_)
         .Str(" libdaisy=").Str(kLibDaisyCommit)
         .Str(" caps=btn,pot,potraw,sw17,sw18,sd,sdread,jack,led");
+#ifdef DIAG_CARD_READER
+    out.Str(",sdmsc");
+#endif
 }
 
 uint32_t Session::Handle(const char* body, uint32_t now_ms, ddp::Writer& reply) {
@@ -207,6 +210,22 @@ uint32_t Session::Handle(const char* body, uint32_t now_ms, ddp::Writer& reply) 
     }
     if(std::strcmp(type, "SDTEST") == 0)
         return kRequestSdTest;
+    if(std::strcmp(type, "READER") == 0) {
+#ifdef DIAG_CARD_READER
+        char action[10];
+        if(!streaming_) { WriteError(reply, type, "SESSION"); return kRequestNone; }
+        if(!ddp::FindField(body, "a", action, sizeof(action))) {
+            WriteError(reply, type, "ARG"); return kRequestNone;
+        }
+        if(std::strcmp(action, "STATUS") == 0) return kRequestReaderStatus;
+        if(std::strcmp(action, "SHARE") == 0) return kRequestReaderShare;
+        if(std::strcmp(action, "RETURN") == 0) return kRequestReaderReturn;
+        WriteError(reply, type, "ARG");
+#else
+        WriteError(reply, type, "UNSUPPORTED");
+#endif
+        return kRequestNone;
+    }
     if(std::strcmp(type, "BYE") == 0) {
         streaming_ = false;
         reply.Str("ACK c=BYE");

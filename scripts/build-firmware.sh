@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds and checks build/DaisyDiagnostic.bin. Linux: put arm-none-eabi-* on PATH
+# Builds/checks both BOOT_SRAM variants. Linux: put arm-none-eabi-* on PATH
 # (scripts/install-toolchain.sh). Windows/Git Bash: install-toolchain-windows.sh.
 set -euo pipefail
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,6 +10,9 @@ done
 export PATH
 python_cmd=python3
 command -v python3 >/dev/null 2>&1 && python3 -c "" 2>/dev/null || python_cmd=python
-make -C "$repo/firmware" -j4
-make -C "$repo/firmware" check PYTHON="$python_cmd"
-(cd "$repo/firmware/build" && sha256sum DaisyDiagnostic.bin)
+for reader in 0 1; do
+    make -C "$repo/firmware" CARD_READER="$reader" -j4
+    make -C "$repo/firmware" CARD_READER="$reader" check PYTHON="$python_cmd"
+done
+(cd "$repo/firmware/build" && sha256sum DaisyDiagnostic.bin > SHA256SUMS && cat SHA256SUMS)
+(cd "$repo/firmware/build/reader" && sha256sum DaisyDiagnostic-CardReader.bin > SHA256SUMS && cat SHA256SUMS)

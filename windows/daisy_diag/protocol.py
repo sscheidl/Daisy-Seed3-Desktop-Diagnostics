@@ -51,7 +51,7 @@ def build_frame(body: str) -> bytes:
 
 
 class FrameParser:
-    """Byte-wise receiver with resynchronisation (see PROTOCOL.md, 'Empfaengerregeln')."""
+    """Byte-wise receiver with resynchronisation (see PROTOCOL.md, receiver rules)."""
 
     _HEX = frozenset(b"0123456789ABCDEFabcdef")
 
@@ -313,6 +313,22 @@ class SdInfo:
     fs_type: str = "-"
     size_mb: int = 0
     entries: int = 0
+
+
+@dataclass(frozen=True)
+class ReaderInfo:
+    state: str
+    sectors: int
+    busy: bool
+
+
+def parse_reader(msg: Message) -> ReaderInfo:
+    state = msg.get("state")
+    if state not in ("LOCAL", "STARTING", "SHARED", "EJECTED", "INTERRUPTED", "ERROR"):
+        raise ProtocolError(f"READER: invalid state {state!r}")
+    if msg.get("a") not in ("STATUS", "SHARE", "RETURN"):
+        raise ProtocolError("READER: invalid or missing action")
+    return ReaderInfo(state, msg.int("sectors"), bool(msg.int("busy", 0, 1)))
 
 
 FRESULT_TEXT = {

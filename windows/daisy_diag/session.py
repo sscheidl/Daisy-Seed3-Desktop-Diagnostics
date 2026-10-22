@@ -26,6 +26,8 @@ ERROR_DISPLAY_S = 3.0
 # card initialisation is bounded by the HAL timeouts. Tolerate that, with margin,
 # while an SD test is pending; afterwards the normal RX timeout applies again.
 SD_TEST_TIMEOUT_S = 20.0
+READER_COMMAND_TIMEOUT_S = 20.0  # SD initialization may block; never implies eject
+READER_IO_RX_TIMEOUT_S = 5.0  # one polling write + programming wait can take 2 s
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,9 @@ class DeviceSession:
         self.board: p.BoardState | None = None
         self.sys: p.SysInfo | None = None
         self.sd: p.SdInfo | None = None
+        self.reader: p.ReaderInfo | None = None
+        self._reader_deadline: float | None = None
+        self._reader_action: str | None = None
 
         self.frames_ok = 0
         self.frame_errors = 0
@@ -167,9 +172,37 @@ class DeviceSession:
         return self._sd_deadline is not None
 
     def request_sd_test(self) -> bool:
+        if self.sd_test_pending or self.reader_pending or (self.reader_supported and
+                (self.reader is None or self.reader.state != "LOCAL")):
+            return False
         if not self.send("SDTEST"):
             return False
         self._sd_deadline = self._clock() + SD_TEST_TIMEOUT_S
+        return True
+
+    @property
+    def reader_supported(self) -> bool:
+        return bool(self.connected and self.device and "sdmsc" in self.device.capabilities)
+
+    @property
+    def reader_pending(self) -> bool:
+        return self._reader_deadline is not None
+
+    def request_reader(self, action: str) -> bool:
+        if action not in ("STATUS", "SHARE", "RETURN"):
+            raise ValueError("invalid reader action")
+        if not self.reader_supported or self.reader_pending or self.sd_test_pending:
+            return False
+        if action == "SHARE" and (self.reader is None or self.reader.state != "LOCAL"
+                                  or self.board is None or not self.board.sd_card):
+            return False
+        if action == "RETURN" and (self.reader is None or self.reader.state not in
+                                    ("EJECTED", "INTERRUPTED", "ERROR") or self.reader.busy):
+            return False
+        if not self.send(f"READER a={action}"):
+            return False
+        self._reader_deadline = self._clock() + READER_COMMAND_TIMEOUT_S
+        self._reader_action = action
         return True
 
     def disconnect(self, reason: str = 'Disconnected by user') -> None:
@@ -213,12 +246,20 @@ class DeviceSession:
                 self._next_hello = now + HELLO_RETRY_S
                 self._write(p.cmd_hello())
         if self.state == ConnState.CONNECTED:
+            if self._reader_deadline is not None and now > self._reader_deadline:
+                self._reader_deadline = None
+                self._reader_action = None
+                self.reader = None  # state unknown; do not infer ownership or clean eject
+                self._event("log", "Card reader command timed out; ownership is unknown")
             if self._sd_deadline is not None and now > self._sd_deadline:
                 self._sd_deadline = None
                 self._event("log", 'microSD test: no response from firmware')
-            if now - self._last_rx > RX_TIMEOUT_S and self._sd_deadline is None:
+            rx_timeout = (READER_IO_RX_TIMEOUT_S if self.reader_supported and self.reader
+                          and self.reader.state == "SHARED" else RX_TIMEOUT_S)
+            if (now - self._last_rx > rx_timeout and self._sd_deadline is None
+                    and self._reader_deadline is None):
                 self._drop_link("Timeout: no data for "
-                                f"{RX_TIMEOUT_S:.1f} s", ConnState.ERROR)
+                                f"{rx_timeout:.1f} s", ConnState.ERROR)
                 return
             if now - self._last_ping >= PING_INTERVAL_S:
                 self._last_ping = now
@@ -317,6 +358,9 @@ class DeviceSession:
         self.board = None
         self.sys = None
         self._sd_deadline = None
+        self._reader_deadline = None
+        self._reader_action = None
+        self.reader = None
         self._state_times.clear()
         self.state_rate_hz = 0.0
         self._next_scan = self._clock() + SCAN_INTERVAL_S
@@ -344,6 +388,9 @@ class DeviceSession:
                 self._last_ping = now
                 self._set_state(ConnState.CONNECTED, f"{self.port}")
                 self._event("connected", info)
+                self.reader = None
+                if "sdmsc" in info.capabilities:
+                    self.request_reader("STATUS")
             elif msg.type == "ST":
                 if self.state != ConnState.CONNECTED:
                     return
@@ -359,6 +406,18 @@ class DeviceSession:
                 self.sd = p.parse_sd(msg)
                 self._sd_deadline = None
                 self._event("sd", self.sd)
+            elif msg.type == "READER":
+                if not self.reader_supported:
+                    raise p.ProtocolError("READER without advertised sdmsc capability")
+                previous = self.reader
+                self.reader = p.parse_reader(msg)
+                completed = self.reader_pending and msg.get("a") == self._reader_action
+                if msg.get("a") == self._reader_action:
+                    self._reader_deadline = None
+                    self._reader_action = None
+                if previous != self.reader or completed:
+                    self.sd = None
+                    self._event("reader", self.reader)
             elif msg.type == "PONG":
                 sent = self._ping_sent.pop(msg.int("n"), None)
                 if sent is not None:
@@ -366,6 +425,11 @@ class DeviceSession:
             elif msg.type == "ACK":
                 self._event("log", f"Acknowledged: {body}")
             elif msg.type == "ERR":
+                if msg.get("c") == "READER":
+                    self._reader_deadline = None
+                    self._reader_action = None
+                    self.reader = None
+                    self._event("reader", None)
                 if self.state == ConnState.HANDSHAKE and msg.get("e") == "PROTO":
                     self._failed_ports[self.port or ""] = now + FAILED_PORT_BACKOFF_S
                     self._drop_link("Firmware does not support protocol "

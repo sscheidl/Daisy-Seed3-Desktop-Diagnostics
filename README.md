@@ -7,7 +7,10 @@ through the carrier's **J7** connector. The GUI and documentation are in English
 > **Validation:** ARM builds and automated software/simulation tests pass.
 > Hardware tests **H1–H10 passed on 17 October 2026**, with H3 shortened to about
 > three minutes. Some results are operator reports rather than recorded measurements.
-> H11 (a second Windows PC without Python) is still open. See the [test report](docs/TEST_REPORT.md).
+> H11 (a second Windows PC without Python) is still open. Those results apply to
+> firmware 0.1.0. The new 0.2.0 card-reader implementation has **software tests
+> only; Windows drive enumeration and physical card writes remain untested**.
+> See the [test report](docs/TEST_REPORT.md) and [reader review](docs/SD_CARD_READER_REVIEW.md).
 
 ![Diagnostic GUI in simulation mode](docs/images/gui-simulation.png)
 
@@ -20,6 +23,7 @@ through the carrier's **J7** connector. The GUI and documentation are in English
 | 8 knobs VR1–VR8 | Normalized value and raw ADC value | Knobs, percentage, min/max |
 | SW17 / SW18 | Two-position / three-position switches; SW18 debounce | Position display |
 | microSD | Card detection; optional **read-only** filesystem test | No card / detected / readable / error |
+| Optional SD card reader | Separate writable CDC + MSC firmware variant; exclusive card ownership | Explicit share, Windows eject, return or interruption acknowledgement |
 | Audio inputs L/R | Input jack detection only; outputs have no detection | Input connector indicators |
 | USB | DDP v1: handshake, 10–100 Hz state stream, CRC, keepalive | Discovery, timeouts, reconnection |
 | Simulation | — | Device model speaking the same protocol |
@@ -32,10 +36,16 @@ or electrical feedback from the LEDs.
 
 The [Hardware diagnostics workflow](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/workflows/diagnostics.yml)
 builds firmware (`DaisyDiagnostic.bin`, `.elf`) and Windows (`DaisyDiagnostic.exe`).
-Open a successful run and download its two ZIP files under **Artifacts**; each
+Open a successful run and download its ZIP files under **Artifacts**; each
 includes `SHA256SUMS`. Access to this private repository is required. Actions
 artifacts expire according to their retention period. Releases are separate,
 versioned snapshots and are not created automatically.
+
+Choose `DaisyDiagnostic-readonly-firmware-*` for the strictly protected diagnostic
+image (`DaisyDiagnostic.bin`), or `DaisyDiagnostic-cardreader-firmware-*` for
+`DaisyDiagnostic-CardReader.bin`. The latter can write card sectors after explicit
+sharing. `DaisyDiagnostic-windows-*` contains the application for both variants.
+See [card reader instructions and hardware checks](docs/SD_CARD_READER.md).
 
 ## Quick start
 
