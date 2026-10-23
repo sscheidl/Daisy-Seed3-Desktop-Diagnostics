@@ -16,7 +16,7 @@ MIN_FRAME_SPACING_S = 0.010
 
 
 class LinkError(OSError):
-    """Raised by links when the device vanished (USB unplugged, port closed)."""
+    'Raised by links when the device vanished (USB unplugged, port closed).'
 
 
 @dataclass
@@ -334,7 +334,7 @@ class SimulatedCable:
         from .session import PortInfo
         if not self.plugged:
             return []
-        return [PortInfo(self.PORT_NAME, p.USB_VID, p.USB_PID, "Simulierter Daisy Seed3 (J7)")]
+        return [PortInfo(self.PORT_NAME, p.USB_VID, p.USB_PID, 'Simulated Daisy Seed3 (J7)')]
 
     def open(self, port: str, clock) -> SimulatedLink:
         if port != self.PORT_NAME or not self.plugged:

@@ -8,4 +8,4 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed --name DaisyDiagn
     --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick ^
     --exclude-module PySide6.QtMultimedia --exclude-module PySide6.Qt3DCore ^
     DaisyDiagnostic.py || exit /b 1
-echo Fertig: %CD%\dist\DaisyDiagnostic.exe
+echo Built: %CD%\dist\DaisyDiagnostic.exe

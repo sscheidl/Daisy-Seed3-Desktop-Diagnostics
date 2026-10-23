@@ -92,6 +92,6 @@ def test_status_dot_colour_follows_connection(app):
         clock.advance(0.005)
         window._tick()
     window._refresh_panels()
-    assert window.status_pill.text() == "Verbindungsfehler"
+    assert window.status_pill.text() == 'Connection error'
     assert theme.ERROR.name() in window.status_dot.styleSheet()
     window.close()

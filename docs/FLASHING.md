@@ -1,69 +1,64 @@
-# Flashen über USB
+# Flashing over USB
 
-Am 17.10.2026 wurde dieser Ablauf mit `DaisyDiagnostic.bin` (v0.1.0) erfolgreich am Kit durchgeführt; Hardwaretest H1–H10 bestanden (siehe [TEST_REPORT.md](TEST_REPORT.md)). Diese Anleitung beschreibt ausschliesslich manuelle Schritte am Kit.
+These steps are performed manually on the kit. Automated builds do not flash hardware.
 
-## Zwei USB-C-Anschlüsse
+## Two USB-C ports
 
-* **Seed3-Modul:** eigener USB-Port für den STM32-ROM-DFU-Modus und die einmalige
-  Installation des Daisy-Bootloaders.
-* **Desktop-Träger, J7 (oberhalb des Seed3):** Stromversorgung, regulärer Betrieb
-  und spätere Programmierung über den **externen** Daisy-Bootloader.
+* **Seed3 module:** STM32 ROM DFU mode and one-time Daisy bootloader installation.
+* **Desktop carrier, J7 (above the Seed3):** power, normal operation, and firmware
+  updates through the **external** Daisy bootloader.
 
-Ein USB-Datenkabel verwenden. Der Anschluss am Träger und der am Seed3 sind
-unterschiedliche USB-Verbindungen. Zum jeweiligen Schritt das Kabel an den
-angegebenen Anschluss umstecken.
+Use a USB data cable and connect to the port specified for each step.
 
-## Einmalig: externen Bootloader installieren
+## One time: install the external bootloader
 
-**Überspringen, wenn bereits ein passender externer v6.x-Bootloader installiert ist.**
-Die Diagnosefirmware ist eine BOOT_SRAM-Anwendung und ersetzt diesen nicht.
-Eine direkte Installation der Anwendung über den ROM-DFU-Modus ist nicht der
-hier verwendete Ablauf.
+**Skip this if a suitable external v6.x bootloader is already installed.**
+Diagnostics is a BOOT_SRAM application and does not replace the bootloader. Direct
+application installation through ROM DFU is not the procedure used here.
 
-1. Computer mit dem USB-C-Port **am Seed3-Modul** verbinden.
-2. **BOOT halten**, RESET drücken und loslassen, dann BOOT loslassen.
-   Dies startet den eingebauten STM32-ROM-Bootloader.
-3. In Chrome/Edge den [Daisy Web Programmer](https://flash.daisy.audio/) öffnen.
-   Bootloader **v6.x (external)** auswählen und installieren.
-   Alternativ, mit lokal installiertem `dfu-util`, im Projektverzeichnis:
+1. Connect the computer to the USB-C port **on the Seed3 module**.
+2. Hold **BOOT**, press and release RESET, then release BOOT to enter STM32 ROM DFU.
+3. Open the [Daisy Web Programmer](https://flash.daisy.audio/) in Chrome/Edge,
+   select bootloader **v6.x (external)**, and install it. Alternatively, with
+   `dfu-util` installed, run from the project root:
 
    ```bash
    make -C firmware program-boot
    ```
 
-   Das Makefile wählt wie das offizielle Desktop-Template gezielt
-   `libDaisy/core/dsy_bootloader_v6_4-extdfu-2000ms.bin`.
-   Dieser separate Befehl schreibt den Bootloader; er wird von `make` nicht ausgeführt.
-4. USB-Kabel zum **Desktop-Träger J7** umstecken.
+   The Makefile selects `libDaisy/core/dsy_bootloader_v6_4-extdfu-2000ms.bin`, like
+   the official Desktop template. This separate command writes the bootloader;
+   a normal `make` does not run it.
+4. Move the cable to **J7 on the Desktop carrier**.
 
-Die Bootloader-Installation ist nur bei fehlender oder unpassender Variante nötig.
-Bei späteren Firmwareupdates nicht erneut `program-boot` ausführen.
+Only install a bootloader when it is missing or the wrong variant. Do not repeat
+`program-boot` for routine application updates.
 
-## Diagnosefirmware flashen
+## Routine updates: flash Diagnostics
 
-1. Kit über **J7 am Desktop-Träger** mit dem Computer verbinden und versorgen.
-2. **RESET drücken und loslassen, anschließend BOOT** innerhalb der ungefähr
-   zweisekündigen Wartezeit drücken. Die USR-LED blinkt zuerst schnell und pulsiert
-   danach langsam: der Daisy-Bootloader wartet auf die Anwendung.
-   Dieser Ablauf unterscheidet sich vom oben beschriebenen ROM-DFU-Modus.
-3. Im [Daisy Web Programmer](https://flash.daisy.audio/) verbinden,
-   unter „Custom“ **`firmware/build/DaisyDiagnostic.bin`** auswählen und programmieren.
-   Alternativ lokal im Projektverzeichnis:
+1. Connect and power the kit through **J7 on the Desktop carrier**.
+2. Press and release **RESET**, then press **BOOT** within approximately two
+   seconds. The USR LED blinks quickly, then pulses slowly: the Daisy bootloader
+   is waiting for the application. This differs from the ROM DFU sequence above.
+3. Connect in the [Daisy Web Programmer](https://flash.daisy.audio/), choose
+   **Custom**, and upload **`firmware/build/DaisyDiagnostic.bin`**. Alternatively, run:
 
    ```bash
    make -C firmware program-dfu
    ```
 
-   Das offizielle Makefile schreibt die Anwendung nach QSPI `0x90040000`.
-   Der Daisy-Bootloader lädt sie zum Ausführen ins SRAM (`0x24000000`).
-4. Nach erfolgreichem Flashen startet die Firmware; gegebenenfalls RESET drücken.
-   Der Bootloader bleibt für weitere Versionen installiert.
+   The official Makefile writes the application into QSPI at `0x90040000`.
+   The bootloader loads it into SRAM at `0x24000000` for execution.
+4. The firmware starts after flashing; press RESET if needed. The bootloader
+   remains installed for later updates.
 
-## Wenn das Gerät nicht erscheint
+Flashing Diagnostics replaces Toy Piano. Flash the Toy Piano binary to switch back;
+only one application runs at a time.
 
-Zuerst Datenkabel, Anschluss und den zum Schritt gehörenden BOOT/RESET-Ablauf
-prüfen. Bei Firmwareupdates muss der externe Bootloader über J7 erreichbar sein.
-WebUSB benötigt einen unterstützten Browser sowie USB-Zugriffsrechte; unter Linux
-können passende udev-Regeln, unter Windows die offiziellen Daisy/Zadig-Treiber nötig sein.
-Siehe [offizielle Hilfe](https://docs.daisy.audio/tutorials/daisy-web-programmer/)
-und [Anleitung des Desktop-Kits](https://github.com/daisyaudio/Seed3-DevKit-Desktop#4-install-the-daisy-bootloader-one-time).
+## If the device does not appear
+
+Check the data cable, port, and BOOT/RESET sequence. Routine updates require the
+external bootloader through J7. WebUSB requires a supported browser and USB access
+permissions. Linux may need udev rules; Windows may need the official Daisy/Zadig
+driver setup. See the [official help](https://docs.daisy.audio/tutorials/daisy-web-programmer/)
+and [Desktop kit instructions](https://github.com/daisyaudio/Seed3-DevKit-Desktop#4-install-the-daisy-bootloader-one-time).

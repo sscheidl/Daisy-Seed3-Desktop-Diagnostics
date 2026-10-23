@@ -8,15 +8,14 @@ import sys
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="DaisyDiagnostic",
-        description="Hardware-Diagnose für das Daisy Seed3 Desktop Dev Kit")
+        description='Hardware diagnostics for the Daisy Seed3 Desktop Dev Kit')
     parser.add_argument("--sim", action="store_true",
-                        help="im Simulationsmodus starten (ohne Hardware)")
-    parser.add_argument("--port", help="festen COM-Port verwenden, z. B. COM5")
-    parser.add_argument("--selftest", type=float, metavar="SEKUNDEN",
-                        help="nach N Sekunden beenden; Exitcode 0, wenn Gerätedaten "
-                             "empfangen wurden (für automatisierte Starttests)")
-    parser.add_argument("--screenshot", metavar="DATEI",
-                        help="vor dem Beenden (--selftest) ein Fensterbild speichern")
+                        help='start in simulation mode (no hardware)')
+    parser.add_argument("--port", help='use a fixed COM port, e.g. COM5')
+    parser.add_argument("--selftest", type=float, metavar='SECONDS',
+                        help='exit after N seconds; exit code 0 if device data was received (for automated startup tests)')
+    parser.add_argument("--screenshot", metavar='FILE',
+                        help='save a window screenshot before exiting (--selftest)')
     return parser.parse_args(argv)
 
 

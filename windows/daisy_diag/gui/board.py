@@ -48,13 +48,13 @@ PHONES_RECT = QRectF(1000, 545, 45, 125)
 RV1_CENTER = QPointF(1130, 530)
 
 NOT_IMPLEMENTED_TIPS = {
-    "out_r": "Audioausgang rechts (J4)\nAudio-Ausgabe: nicht implementiert (stumm)",
-    "out_l": "Audioausgang links (J3)\nAudio-Ausgabe: nicht implementiert (stumm)",
-    "cv": "CV-Ein-/Ausgänge und Gate-Eingänge\nNicht implementiert",
-    "midi": "MIDI DIN (OUT/THRU/INPUT)\nNicht implementiert",
-    "phones": "Kopfhörerausgang J5\nAudio-Ausgabe: nicht implementiert",
-    "rv1": "RV1: analoger Kopfhörer-Lautstärkeregler\nNicht per Software lesbar",
-    "seed_usb": "USB-C am Seed3-Modul\nNur für die Bootloader-Installation; von dieser Diagnose nicht verwendet",
+    "out_r": 'Right audio output (J4)\nAudio output: not implemented (silent)',
+    "out_l": 'Left audio output (J3)\nAudio output: not implemented (silent)',
+    "cv": 'CV inputs/outputs and gate inputs\nNot implemented',
+    "midi": 'MIDI DIN (OUT/THRU/INPUT)\nNot implemented',
+    "phones": 'Headphone output J5\nAudio output: not implemented',
+    "rv1": 'RV1: analog headphone volume control\nCannot be read by software',
+    "seed_usb": 'USB-C on the Seed3 module\nUsed only to install the bootloader; not used by this diagnostic application',
 }
 
 
@@ -113,7 +113,7 @@ class BoardWidget(QWidget):
         self.led_selectable = False  # LED mode MASK: LEDs can be toggled
         self.simulated = False
         self.connected = False
-        self.sd_display = SdDisplay("Keine Daten", theme.MUTED)
+        self.sd_display = SdDisplay('No data', theme.MUTED)
         self.pot_min: list[float | None] = [None] * p.NUM_POTS
         self.pot_max: list[float | None] = [None] * p.NUM_POTS
         self._drag_pot: int | None = None
@@ -248,40 +248,38 @@ class BoardWidget(QWidget):
             return ""
         kind, i = hit
         st = self.state
-        suffix = "\n(simulierte Daten)" if self.simulated else ""
+        suffix = '\n(simulated data)' if self.simulated else ""
         if kind == "button":
             if st is None:
-                return f"Taster S{i + 1}"
-            return (f"Taster S{i + 1}: {'gedrückt' if st.buttons[i] else 'losgelassen'}\n"
-                    f"Druckzähler: {st.press_counts[i]} (modulo 256){suffix}")
+                return f"Button S{i + 1}"
+            return (f"Button S{i + 1}: {'pressed' if st.buttons[i] else 'released'}\n"
+                    f"Press count: {st.press_counts[i]} (modulo 256){suffix}")
         if kind == "led":
-            state = "keine Daten" if st is None else ("EIN" if st.leds[i] else "AUS")
-            hint = "\nKlicken schaltet diese LED (Modus „Einzeln“)" if self.led_selectable else ""
-            return (f"LED D{i + 1}: Sollzustand {state}\n"
-                    f"Keine elektrische Rückmeldung – bitte am Board ansehen.{hint}{suffix}")
+            state = 'no data' if st is None else ('ON' if st.leds[i] else 'OFF')
+            hint = '\nClick to toggle this LED (Individual mode)' if self.led_selectable else ""
+            return (f"LED D{i + 1}: commanded state {state}\n"
+                    f"No electrical feedback – inspect the physical board.{hint}{suffix}")
         if kind == "pot":
             if st is None:
                 return f"Potentiometer VR{i + 1}"
-            return (f"VR{i + 1}: {st.pots[i] * 100:.1f} % (ADC roh {st.pots_raw[i]})"
+            return (f"VR{i + 1}: {st.pots[i] * 100:.1f} % (raw ADC {st.pots_raw[i]})"
                     f"{suffix}")
         if kind == "sw17":
-            return "SW17 (2 Positionen, ON-ON)\nU/D nach libDaisy tog_sw17.Pressed();\n" \
-                   "physische Richtung beim ersten Hardwaretest bestätigen" + suffix
+            return 'SW17 (2 positions, ON-ON)\nU/D from libDaisy tog_sw17.Pressed();\nverify the physical direction on your board' + suffix
         if kind == "sw18":
-            return "SW18 (3 Positionen, ON-OFF-ON)\nU/C/D nach libDaisy Switch3;\n" \
-                   "physische Richtung beim ersten Hardwaretest bestätigen" + suffix
+            return 'SW18 (3 positions, ON-OFF-ON)\nU/C/D from libDaisy Switch3;\nverify the physical direction on your board' + suffix
         if kind == "sd":
-            return f"microSD-Steckplatz: {self.sd_display.text}{suffix}"
+            return f"microSD slot: {self.sd_display.text}{suffix}"
         if kind == "j7":
-            return "J7 USB-C (Desktop-Träger)\nStromversorgung + USB CDC (Diagnoseprotokoll DDP)"
+            return 'J7 USB-C (Desktop carrier)\nPower + USB CDC (DDP diagnostic protocol)'
         if kind == "seed":
             return NOT_IMPLEMENTED_TIPS["seed_usb"]
         if kind in ("in_l", "in_r"):
-            side = "links" if kind == "in_l" else "rechts"
+            side = 'left' if kind == "in_l" else 'right'
             plugged = None if st is None else (st.jack_left if kind == "in_l" else st.jack_right)
-            plug_txt = "keine Daten" if plugged is None else ("gesteckt" if plugged else "frei")
-            return (f"Audioeingang {side}: Steckererkennung = {plug_txt}\n"
-                    f"Audio-Eingang selbst: nicht implementiert{suffix}")
+            plug_txt = 'no data' if plugged is None else ('plugged in' if plugged else 'unplugged')
+            return (f"Audio input {side}: plug detection = {plug_txt}\n"
+                    f"Audio input processing: not implemented{suffix}")
         return NOT_IMPLEMENTED_TIPS.get(kind, "")
 
     # ---- painting ----------------------------------------------------------------------
@@ -323,7 +321,7 @@ class BoardWidget(QWidget):
         painter.setPen(Qt.NoPen)
         painter.setBrush(theme.NI_BADGE)
         painter.drawRoundedRect(rect, 1.5, 1.5)
-        self._text(painter, rect, "n. i.", 7.5, theme.NI_TEXT)
+        self._text(painter, rect, 'N/I', 7.5, theme.NI_TEXT)
 
     @staticmethod
     def _metal(rect: QRectF, light: str = "#d3d6d9", dark: str = "#8b8f94") -> QLinearGradient:
@@ -399,7 +397,7 @@ class BoardWidget(QWidget):
             painter.drawEllipse(QPointF(x, rect.top() + 7), 17, 8)
             self._text(painter, QRectF(x - 70, 118, 140, 14), label, 8)
             if key.startswith("in"):
-                txt = "–" if detected is None else ("Stecker erkannt" if detected else "kein Stecker")
+                txt = "–" if detected is None else ('Plug detected' if detected else 'no plug')
                 self._text(painter, QRectF(x - 70, 133, 140, 14), txt, 8,
                            theme.OK if detected else theme.SILK_MUTED)
                 self._ni_badge(painter, QPointF(x, 160))
@@ -461,7 +459,7 @@ class BoardWidget(QWidget):
         self._text(painter, QRectF(44, 211, 140, 14), "J7 USB-C", 8.5, theme.SILK,
                    Qt.AlignLeft, bold=True)
         self._text(painter, QRectF(44, 227, 160, 14),
-                   "DDP verbunden" if self.connected else "DDP getrennt", 8,
+                   'DDP connected' if self.connected else 'DDP disconnected', 8,
                    theme.OK if self.connected else theme.SILK_MUTED, Qt.AlignLeft)
         # Seed3 module
         painter.setPen(QPen(QColor("#050505"), 1))
@@ -711,7 +709,7 @@ class BoardWidget(QWidget):
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor(12, 13, 14, 165))
         painter.drawRoundedRect(QRectF(0, 0, BOARD_W, BOARD_H), 14, 14)
-        self._text(painter, QRectF(0, 258, BOARD_W, 40), "Keine Gerätedaten", 22, theme.TEXT,
+        self._text(painter, QRectF(0, 258, BOARD_W, 40), 'No device data', 22, theme.TEXT,
                    bold=True)
         self._text(painter, QRectF(0, 300, BOARD_W, 30),
-                   "Daisy Seed3 über J7 anschließen oder Simulation wählen", 12, theme.MUTED)
+                   'Connect a Daisy Seed3 via J7 or select Simulation', 12, theme.MUTED)
