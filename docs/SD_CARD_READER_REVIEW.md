@@ -7,6 +7,19 @@ Keep that dependency until it merges, then retarget the reader PR to main after
 checking its diff. Do not merge the reader implementation before Claude's review
 and explicit merge approval.
 
+Implementation PR: [#3](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/pull/3).
+Completed software-validation record for implementation commit
+`a9c37e1dbf24a21063a52aadd765f2b0bf252b8a`:
+[CI run 39856549631](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/runs/39856549631)
+passed ARM builds, both symbol policies, g++ host tests, ASan/UBSan, 195 Python
+tests, Windows packaging and the packaged simulation startup. Downloads:
+[protected firmware](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/runs/39856549631/artifacts/12460590300),
+[reader firmware](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/runs/39856549631/artifacts/12458669367),
+[Windows EXE](https://github.com/sscheidl/Daisy-Seed3-Desktop-Diagnostics/actions/runs/39856549631/artifacts/12460590651).
+Artifacts require repository access and expire. For subsequent commits, inspect
+the exact PR head's checks and download the matching artifacts, not an older run.
+These are software results; hardware acceptance remains open.
+
 ## Architecture and changed files
 
 | Files | Responsibility |
