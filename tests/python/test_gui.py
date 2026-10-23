@@ -55,9 +55,58 @@ def test_starts_in_simulation_and_is_marked(sim):
     assert window.sim_banner.isVisible() and "SIMULATION" in window.sim_banner.text()
     assert "SIMULATION" in window.windowTitle()
     assert window.status_pill.text() == "Connected (Simulation)"
-    assert window.info["fw"].text() == "DaisyDiagnostic 0.1.0-sim"
+    assert window.info["fw"].text() == "DaisyDiagnostic 0.2.0-sim"
     assert window.info["proto"].text().startswith("DDP v1")
     assert window.board.simulated and window.board.interactive
+
+
+def test_reader_controls_follow_ownership_and_never_create_a_drive(sim):
+    window, step = sim
+    assert "no Windows drive" in window.reader_status.text()
+    assert not window.reader_share.isEnabled()
+    window.cable.device.inputs.sd_card = True
+    step()
+    assert window.reader_share.isEnabled()
+    window.reader_share.click()
+    step()
+    assert "Windows owns" in window.reader_status.text()
+    assert not window.sd_button.isEnabled() and not window.reader_return.isEnabled()
+    window.sim_reader_eject.click()
+    step()
+    assert window.reader_return.isEnabled() and not window.sd_button.isEnabled()
+    window.reader_return.click()
+    step()
+    assert window.sd_button.isEnabled() and window.reader_share.isEnabled()
+
+
+def test_interrupted_reader_return_requires_acknowledgement(sim, monkeypatch):
+    window, step = sim
+    window.cable.device.inputs.sd_card = True
+    step()
+    window.reader_share.click()
+    step()
+    window.sim_reader_reset.click()
+    step()
+    assert "interrupted" in window.reader_status.text()
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *args: mw.QMessageBox.No)
+    window.reader_return.click()
+    step()
+    assert window.session.reader.state == "INTERRUPTED"
+    monkeypatch.setattr(mw.QMessageBox, "warning", lambda *args: mw.QMessageBox.Yes)
+    window.reader_return.click()
+    step()
+    assert window.session.reader.state == "LOCAL"
+
+
+def test_reader_unavailable_for_protected_firmware(sim):
+    window, step = sim
+    window.cable.device.inputs.sd_card = True
+    step()
+    window.session.device.capabilities.remove("sdmsc")
+    window._refresh_panels()
+    assert "unavailable" in window.reader_status.text()
+    assert not window.reader_share.isEnabled() and not window.reader_return.isEnabled()
+    assert window.sd_button.isEnabled()
 
 
 @pytest.mark.parametrize("index", range(p.NUM_BUTTONS))

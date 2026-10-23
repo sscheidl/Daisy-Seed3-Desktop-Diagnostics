@@ -126,7 +126,7 @@ void TestHandshakeAndRate() {
     r.Run(1);
     auto got = r.Received();
     CHECK(got.size() == 3);
-    CHECK(got.size() == 3 && StartsWith(got[0], "HELLO proto=1 fw=0.1.0"));
+    CHECK(got.size() == 3 && StartsWith(got[0], "HELLO proto=1 fw=0.2.0"));
     CHECK(got.size() == 3 && StartsWith(got[1], "ST n=0 "));
     CHECK(got.size() == 3 && StartsWith(got[2], "SYS "));
     for(int k = 0; k < 4; ++k) {  // keep the host alive with PINGs

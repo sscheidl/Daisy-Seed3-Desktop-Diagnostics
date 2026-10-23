@@ -30,6 +30,12 @@ class Board {
     virtual uint32_t ControlTicks() = 0;  // number of 1 kHz control updates so far
     virtual void ApplyLeds(uint16_t leds, uint8_t brightness_percent) = 0;
     virtual SdResult RunSdTest(bool card_present) = 0;  // blocking, bounded
+    virtual bool SdTestAllowed() { return true; }
+    // Default board is the protected diagnostic build. Reader builds return
+    // explicit status/error bodies and never release a card on BYE or timeout.
+    virtual void ReaderCommand(uint32_t, ddp::Writer& out) {
+        out.Str("ERR c=READER e=UNSUPPORTED");
+    }
 
   protected:
     ~Board() = default;

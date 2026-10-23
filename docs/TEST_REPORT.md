@@ -1,5 +1,16 @@
 # Test report
 
+## Version 0.2.0 SD card reader
+
+This extension has software-only validation. Both ARM variants build with separate
+symbol policies. Host tests execute the actual portable ownership controller,
+MSC BOT/SCSI implementation, application command handling and composite USB adapter
+(with HAL stubs). Python tests exercise the DDP extension, session and GUI. The
+simulator models ownership/status only; it does not create a Windows disk or
+execute USB MSC. New code has not been flashed and no physical card was written.
+Exact verification commands/results and pending physical checks:
+[SD_CARD_READER_REVIEW.md](SD_CARD_READER_REVIEW.md).
+
 > Imported software-validation record, supplemented by hardware results on
 > 17 October 2026. See [MIGRATION.md](MIGRATION.md) for repository history.
 

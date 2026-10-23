@@ -43,8 +43,12 @@ class SimulatedInputs:
 class SimulatedDevice:
     """Device side of DDP v1, modelled after firmware/src."""
 
-    def __init__(self, protocol_version: int = p.PROTOCOL_VERSION) -> None:
+    def __init__(self, protocol_version: int = p.PROTOCOL_VERSION, reader_supported: bool = True) -> None:
         self.protocol_version = protocol_version
+        self.reader_supported = reader_supported
+        self.reader_state = "LOCAL"
+        self.reader_sectors = 0
+        self.reader_init_duration = 0.0
         self.inputs = SimulatedInputs()
         # SD card content for SDTEST: file system type, or None for "no file system".
         self.sd_filesystem: str | None = "FAT32"
@@ -118,6 +122,8 @@ class SimulatedDevice:
     def output(self, now: float) -> bytes:
         """Returns all bytes the device sent since the previous call."""
         self._boot(now)
+        if not self.inputs.sd_card and self.reader_state == "SHARED":
+            self.reader_state = "INTERRUPTED"
         if now < self._busy_until:
             return b""  # main loop blocked in the SD driver: nothing is sent
         self._process_rx(now)
@@ -178,9 +184,10 @@ class SimulatedDevice:
                 self._streaming = True
                 self._last_sent = None
                 self._send(
-                    f"HELLO proto={self.protocol_version} fw=0.1.0-sim app=DaisyDiagnostic "
+                    f"HELLO proto={self.protocol_version} fw=0.2.0-sim app=DaisyDiagnostic "
                     "dev=seed3-desktop boot=BOOT_SRAM bl=v6_1 libdaisy=f715e48 "
-                    "caps=btn,pot,potraw,sw17,sw18,sd,sdread,jack,led sim=1")
+                    "caps=btn,pot,potraw,sw17,sw18,sd,sdread,jack,led"
+                    + (",sdmsc" if self.reader_supported else "") + " sim=1")
                 self._send_state(now)
         elif t == "PING":
             n = msg.get("n")
@@ -197,10 +204,39 @@ class SimulatedDevice:
         elif t == "LED":
             self._handle_led(msg)
         elif t == "SDTEST":
+            if self.reader_state != "LOCAL":
+                self._send("ERR c=SDTEST e=BUSY")
+                return
             if self.inputs.sd_card:
                 self._busy_until = now + self.sd_test_duration
                 self._keepalive_after_block = True
             self._send(self._sd_result())
+        elif t == "READER":
+            action = msg.get("a")
+            if not self.reader_supported:
+                self._send("ERR c=READER e=UNSUPPORTED")
+            elif not self._streaming:
+                self._send("ERR c=READER e=SESSION")
+            elif action not in ("STATUS", "SHARE", "RETURN"):
+                self._send("ERR c=READER e=ARG")
+            elif action == "SHARE":
+                if self.reader_state != "LOCAL" or not self.inputs.sd_card:
+                    self._send("ERR c=READER e=STATE")
+                else:
+                    self.reader_state = "SHARED"
+                    self.reader_sectors = self.sd_size_mb * 2048
+                    self._busy_until = now + self.reader_init_duration
+                    self._keepalive_after_block = True
+                    self._send_reader(action)
+            elif action == "RETURN":
+                if self.reader_state not in ("EJECTED", "INTERRUPTED", "ERROR"):
+                    self._send("ERR c=READER e=STATE")
+                else:
+                    self.reader_state = "LOCAL"
+                    self.reader_sectors = 0
+                    self._send_reader(action)
+            else:
+                self._send_reader(action)
         elif t == "BYE":
             self._streaming = False
             self._send("ACK c=BYE")
@@ -230,6 +266,22 @@ class SimulatedDevice:
             return "SD st=ERROR res=13"
         return (f"SD st=MOUNTED res=0 fs={self.sd_filesystem} mb={self.sd_size_mb} "
                 f"ent={self.sd_entries}")
+
+    def _send_reader(self, action: str = "STATUS") -> None:
+        if self.reader_supported:
+            self._send(f"READER state={self.reader_state} sectors={self.reader_sectors} busy=0 a={action}")
+
+    def reader_eject(self) -> None:
+        """Model a successful Windows eject. Does not emulate the USB MSC stack."""
+        if self.reader_state == "SHARED":
+            self.reader_state = "EJECTED"
+            self._send_reader()
+
+    def reader_bus_reset(self) -> None:
+        """An externally powered board can lose its USB link without rebooting."""
+        if self.reader_state == "SHARED":
+            self.reader_state = "INTERRUPTED"
+        self._send_reader()
 
     def state(self, now: float) -> p.BoardState:
         leds = self.computed_leds(now)
@@ -278,6 +330,7 @@ class SimulatedDevice:
             self._last_sent = self.inputs.digital()
         if now - self._last_sys >= 1.0 - 1e-6:
             self._send_sys(now)
+            self._send_reader()
 
 
 class SimulatedLink:

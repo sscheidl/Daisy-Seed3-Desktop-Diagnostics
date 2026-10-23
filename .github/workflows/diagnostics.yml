@@ -22,19 +22,29 @@ jobs:
         run: make -C firmware test
       - name: Host tests with ASan and UBSan
         run: make -C firmware test-sanitize
-      - name: Cross-compile firmware
-        run: make -C firmware -j4
-      - name: Check image and read-only FatFs usage
-        run: make -C firmware check
-      - name: Checksum
-        run: cd firmware/build && sha256sum DaisyDiagnostic.bin > SHA256SUMS
+      - name: Build both variants and verify image/symbol policies
+        run: bash scripts/build-firmware.sh
+      - name: Record source and variant
+        run: |
+          printf 'Source: %s\nVariant: strictly read-only diagnostics\n' "$GITHUB_SHA" > firmware/build/BUILD_INFO.txt
+          printf 'Source: %s\nVariant: writable SD card reader; starts unexported\n' "$GITHUB_SHA" > firmware/build/reader/BUILD_INFO.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: DaisyDiagnostic-firmware-${{ github.sha }}
+          name: DaisyDiagnostic-readonly-firmware-${{ github.sha }}
           path: |
             firmware/build/DaisyDiagnostic.bin
             firmware/build/DaisyDiagnostic.elf
             firmware/build/SHA256SUMS
+            firmware/build/BUILD_INFO.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DaisyDiagnostic-cardreader-firmware-${{ github.sha }}
+          path: |
+            firmware/build/reader/DaisyDiagnostic-CardReader.bin
+            firmware/build/reader/DaisyDiagnostic-CardReader.elf
+            firmware/build/reader/SHA256SUMS
+            firmware/build/reader/BUILD_INFO.txt
           if-no-files-found: error
 
   windows-app:
@@ -63,6 +73,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "EXE selftest failed: $($p.ExitCode)" }
       - name: Checksum
         run: |
+          "Source: ${{ github.sha }}" | Set-Content windows\dist\BUILD_INFO.txt
           Get-FileHash windows\dist\DaisyDiagnostic.exe -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  DaisyDiagnostic.exe" } |
             Set-Content windows\dist\SHA256SUMS
@@ -72,4 +83,5 @@ jobs:
           path: |
             windows/dist/DaisyDiagnostic.exe
             windows/dist/SHA256SUMS
+            windows/dist/BUILD_INFO.txt
           if-no-files-found: error

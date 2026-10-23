@@ -7,7 +7,7 @@
 
 namespace diag {
 
-constexpr const char* kFirmwareVersion = "0.1.0";
+constexpr const char* kFirmwareVersion = "0.2.0";
 constexpr const char* kAppName = "DaisyDiagnostic";
 constexpr const char* kLibDaisyCommit = "f715e48";
 constexpr size_t kNumButtons = 16;
@@ -95,6 +95,9 @@ enum Request : uint32_t {
     kRequestSdTest = 1u << 1,  // run the read-only SD test in the main loop
     kRequestLeds = 1u << 2,    // LED settings changed
     kRequestNewSession = 1u << 3,  // HELLO accepted: stale queued output may be dropped
+    kRequestReaderStatus = 1u << 4,
+    kRequestReaderShare = 1u << 5,
+    kRequestReaderReturn = 1u << 6,
 };
 
 // Command handling and host liveness. Streaming starts with HELLO and stops after

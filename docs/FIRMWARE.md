@@ -1,5 +1,23 @@
 # Diagnostic firmware — configuration, dependencies, architecture
 
+## Version 0.2.0 variants
+
+The default image remains strictly read-only. `CARD_READER=1` builds the separate
+`DaisyDiagnostic-CardReader` image with CDC + MSC on J7. It starts with an absent
+logical medium until explicit sharing. The SD diagnostic test itself still uses
+the protected driver. For ownership, transport details and current software-only
+validation, see [SD_CARD_READER_REVIEW.md](SD_CARD_READER_REVIEW.md).
+
+The pinned libDaisy submodule remains unmodified. The reader adds a project-owned
+composite class and recompiles the pinned `usbd_ctlreq.c` through a small wrapper
+to admit interface 2 (the pinned core uses an inclusive interface-limit check).
+No global `USE_USBD_COMPOSITE` ABI switch is applied to the precompiled library.
+
+Local GCC 13.2.1 measurements: protected image 122,396 bytes / DTCM 71,808 bytes;
+reader image approximately 126 KiB / DTCM 68 KiB, SDRAM 632 bytes. Check the
+actual build log and checksums for the exact revision. All images remain BOOT_SRAM.
+The historical hardware results below do not validate the reader variant.
+
 ## Target configuration
 
 | Item | Value |
@@ -39,7 +57,7 @@ make -C firmware test test-sanitize       # Linux / g++
 ```
 
 Windows host-test alternative: `scripts\run-host-tests-msvc.cmd` (`/W4 /WX`).
-`make check` checks BOOT_SRAM vectors using `scripts/check-firmware.py` and checks
+For the protected default, `make check` checks BOOT_SRAM vectors using `scripts/check-firmware.py` and checks
 linked symbols using `arm-none-eabi-nm`. It rejects write, erase, and lock paths:
 SDMMC CMD24/25, CMD32/33/38, CMD42, HAL SD writers, BSP/disk writers, and FatFs APIs
 including `f_open`, `f_write`, and `f_mkfs`. Required symbols (`RoRead`, `RoWrite`,

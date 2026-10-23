@@ -36,7 +36,7 @@ def connected():
 def test_handshake_reports_versions(connected):
     _, _, s = connected
     assert s.device.protocol == p.PROTOCOL_VERSION
-    assert s.device.firmware == "0.1.0-sim"
+    assert s.device.firmware == "0.2.0-sim"
     assert s.device.simulated
     events = [k for k, _ in s.drain_events()]
     assert "connected" in events

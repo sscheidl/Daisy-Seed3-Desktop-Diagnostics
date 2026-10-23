@@ -66,6 +66,12 @@ void App::Step(uint32_t now) {
         char reply_buf[ddp::kMaxBody + 1];
         ddp::Writer reply(reply_buf, sizeof(reply_buf));
         const uint32_t r = session_.Handle(parser_.Body(), now, reply);
+        if(r & (kRequestReaderShare | kRequestReaderReturn | kRequestReaderStatus)) {
+            // Execute in wire order, not after coalescing command bits. This also
+            // prevents a queued SDTEST from running after a SHARE in the same RX batch.
+            board_.ReaderCommand(r, reply);
+            keepalive_after_block_ = true;
+        }
         if(r & kRequestNewSession) {
             // Output queued for a previous host (e.g. one that closed the port without
             // BYE) is stale; start the new session with a clean buffer.
@@ -104,7 +110,8 @@ void App::Step(uint32_t now) {
     if(requests & kRequestSdTest) {
         char body[96];
         ddp::Writer out(body, sizeof(body));
-        WriteSd(board_.RunSdTest(inputs.sd_card), out);
+        if(board_.SdTestAllowed()) WriteSd(board_.RunSdTest(inputs.sd_card), out);
+        else out.Str("ERR c=SDTEST e=BUSY");
         Send(out);
         keepalive_after_block_ = true;
     }
@@ -129,6 +136,12 @@ void App::Step(uint32_t now) {
             WriteSys(stats_, true, session_.settings.rate_hz, out);
             Send(out);
             last_sys_ms_ = now;
+#ifdef DIAG_CARD_READER
+            char reader_body[128];
+            ddp::Writer reader_out(reader_body, sizeof(reader_body));
+            board_.ReaderCommand(kRequestReaderStatus, reader_out);
+            Send(reader_out);
+#endif
         }
     }
     tx_.Pump(usb_, stats_);
